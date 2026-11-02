@@ -9,7 +9,7 @@ repositorio. Leyenda de estado:
 
 Prioridades del original: 🔴 bloqueante go-live · 🟡 recomendado · 🟢 mejora post-GA.
 
-Evidencia general: `python -m unittest discover -s tests` (**264 tests OK**) · CI en
+Evidencia general: `python -m unittest discover -s tests` (**338 tests OK**) · CI en
 `.github/workflows/ci.yml` · paper base: Xu et al., *Harness 2: Recursive Agent
 Harnessing for an Open World*, arXiv:2610.14224 (`docs/adr/README.md`).
 
@@ -45,7 +45,10 @@ nuevos. Ítems que pasan de ⚠️ a ✅ en este repo:
 | §1.2 Multi-tenant base | ⚠️ | ✅ | `tenancy.py` (stores/trace_dir aislados por tenant, validación anti-traversal) |
 | §11.1 Métricas a Prometheus/OTLP + visor | ⚠️ | ✅ (base) | `metrics_export.py` (`/metrics` texto Prometheus, spans OTLP/JSON, `OtlpExporter`); `web.py` dashboard en `/` con SSE; OTel nativo sigue 🏢 |
 | §5.9/§21 Evaluación en lote + comparación A/B | ⚠️ | ✅ | `datasets.py` (JSONL + `compare_reports` con delta en pp y casos que cambian) |
-| §6.2/§21.4 Dashboard unificado | ⚠️ | ✅ | `web.py` + endpoints `/`, `/metrics`, `/jobs`, `/events` |
+| §6.2/§21.4 Dashboard unificado | ⚠️ | ✅ | `web.py` + endpoints `/`, `/metrics`, `/jobs`, `/events`, `/compare` |
+| §5.8 Review automático de PRs (diff en alcance, sintaxis, secretos) | — | ✅ | `review.py` (`ReviewAgent.review_diff` → WevMessage medible) |
+| §8.1 Latencia medida con percentiles | ⚠️ | ✅ | `latencia.py` (`bench_latencia` p50/p90/p95/p99, `comparar_latencias`) |
+| §5.2 Ejemplo ejecutable de catálogo de agentes | ⚠️ | ✅ | `examples/agents.json` + `examples/demo_agents.py` |
 
 Sigue pendiente técnico (⚠️): cassettes HTTP de proveedores reales; sharding/watch
 de suites; cobertura con herramienta en CI; contenedor/gVisor para aislamiento
@@ -300,7 +303,7 @@ integrado (`examples/demo_e2e.py`, `demo_xkiro.py`), config (`pyproject.toml`).
 
 ## Resumen ejecutivo
 
-- **Cierre técnico en el repo**: **322 tests OK**, CI verde (lint+secretos+tests 3.10–3.12+
+- **Cierre técnico en el repo**: **338 tests OK**, CI verde (lint+secretos+tests 3.10–3.12+
   contrato+smoke), 7 ejemplos ejecutables, bench, ADRs 001–005, CLI empaquetada
   (`harness-candy`), servidor HTTP local con API REST+SSE, esquemas JSON Schema
   publicados, golden sets con gate, reportes JUnit/HTML/MD, caché LLM, failover

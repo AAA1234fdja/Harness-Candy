@@ -53,6 +53,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) + SemVer.
 - Tests: 58 nuevos (322 en total) — `test_auth, test_tenancy, test_agents_catalog, test_guards, test_scheduler, test_datasets, test_metrics_export, test_server_extra`.
 - Docs actualizadas: `API.md`, `OPERACION.md` (runbooks 11–15), `CHECKLIST_V3_ESTADO.md`, README.
 
+### Añadido (tercera ola)
+- `review.py`: `ReviewAgent` — revisión automática de PRs sobre el diff (allowlist de rutas con `check_diff_paths`, sintaxis `ast` de los .py añadidos, bloqueo de secretos/PII en el diff) → `WevMessage` con checks medibles.
+- `latencia.py`: `bench_latencia` con percentiles p50/p90/p95/p99 + `comparar_latencias` (delta % antes/después, p. ej. para justificar Rust).
+- `agents_catalog.py`: campo `class` en el catálogo (`SecurityScanAgent` real); `examples/agents.json` + `examples/demo_agents.py`.
+- Servidor: `GET /compare?a=<run>&b=<run>` (delta de Q medio, duración y métricas).
+- `docs/TUTORIAL.md`: recorrido de 15 minutos (instalar → tests → CLI → servidor → Python → xkiro).
+- Tests: 338 en total (16 nuevos: `test_review`, `test_latencia`, `/compare` en `test_server_extra`).
+
 ## [0.1.0] - 2026-11-02
 
 ### Añadido

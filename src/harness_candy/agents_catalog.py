@@ -62,6 +62,7 @@ class AgentSpec:
         self.guardrails = list(d.get("guardrails", []))
         self.tools = list(d.get("tools", []))
         self.tool_guidance = d.get("tool_guidance", "")
+        self.agent_class = d.get("class", "Agent")
 
     def to_harness(self) -> Harness:
         return Harness(
@@ -102,10 +103,17 @@ class AgentCatalog:
         return [a for a in self.agents if role in a.roles or not a.roles]
 
     def build_agents(self, backend: LLMBackend) -> dict[str, Agent]:
-        """Instancia los agentes del catalogo con el backend dado."""
+        """Instancia los agentes del catalogo con el backend dado.
+
+        ``class: "SecurityScanAgent"`` instancia el agente de escaneo real;
+        por defecto se crea un ``Agent`` generico.
+        """
+        from .agents import SecurityScanAgent
+
         out: dict[str, Agent] = {}
         for spec in self.agents:
-            out[spec.name] = Agent(
+            cls = SecurityScanAgent if spec.agent_class == "SecurityScanAgent" else Agent
+            out[spec.name] = cls(
                 name=spec.name,
                 model=spec.model,
                 backend=backend,

@@ -43,6 +43,16 @@ El contrato de datos está publicado como **JSON Schema** (módulo `schemas`,
 | `suite` | `Suite.from_dict`, `load_suite(path)`, `suite.to_dag()`, `run_suite(...)` → `SuiteResult` | §4.4 DSL de suites JSON |
 | `evalkit` | `GoldenSet`, `load_golden(path)`, `run_golden(...)` → `EvalReport` (`assert_gate()` para CI) | §5.9/§19 golden sets |
 | `factory` | `build_runner(trace_dir, backend_kind=...)`, `make_pool()`, `make_backend("scripted" \| "xkiro")` | cableado por defecto |
+| `auth` | `TokenAuth` (bearer, comparación en tiempo constante, lee `HARNESS_API_TOKEN`), `IpRateLimiter` | §10.2/§5.8 auth + rate limit del servidor |
+| `tenancy` | `TenantManager(base).store(tenant)`, `.trace_dir(tenant)`, `validate_tenant` | §1.2 multi-tenant base (aislamiento por namespace, anti-traversal) |
+| `agents_catalog` | `AgentCatalog.load(path)`, `.build_agents(backend)`, esquema `agents_catalog` (con campo `class`) | §5.2 agentes declarativos desde archivo |
+| `guards` | `GuardPipeline`, `NoSecretsGuard`, `MaxLengthGuard`, `JsonSchemaGuard`, `RequiredKeysGuard`, `ForbiddenPatternsGuard`, `default_pipeline()` | §5.8 guardrails de salida componibles |
+| `scheduler` | `Scheduler(run_fn, base_dir)`, `job = sched.add(name, suite_path, interval_s)`, `tick()/tick_blocking()` | §4.3 scheduling justo de suites |
+| `datasets` | `load_dataset(path.jsonl)`, `run_dataset(...)`, `compare_reports(a, b)` → `Comparison` | §5.9/§21 evaluación en lote + A/B |
+| `metrics_export` | `prometheus_text(metrics, labels)`, `otlp_spans(traces)`, `OtlpExporter(endpoint)` | §11.1 métricas a Prometheus/OTLP |
+| `web` | `dashboard_html()` (panel en `/` con SSE en vivo) | §6.2/§21.4 visor |
+| `review` | `ReviewAgent().review_diff(diff_text)` → `WevMessage` (checks: diff_en_alcance, sintaxis_ok, sin_secretos_en_diff) | §5.8 review automático de PRs |
+| `latencia` | `bench_latencia(fn, n, warmup)` (p50/p90/p95/p99), `comparar_latencias(antes, despues)`, `percentiles(vals)` | §8.1 latencia medida |
 | `cli` | `main(argv)`; entry point `harness-candy` | §4.2 CLI |
 | `server` | `make_server(host, port, store=...)`, `HarnessServer` | §6.2 API REST local |
 
@@ -77,6 +87,7 @@ no aprobada (sirve para CI). `golden`: 0 si pasa el gate, 2 si no.
 | POST | `/jobs` | `{"name", "suite_path", "interval_s", "jitter_s?"}` → 201 |
 | DELETE | `/jobs/{job_id}` | elimina un job |
 | GET | `/runs?limit=N` | corridas guardadas |
+| GET | `/compare?a=<run_id>&b=<run_id>` | delta de Q medio, duración y métricas entre dos corridas |
 | POST | `/runs` | `{"objetivo", "inputs", "seed"}` → ejecuta y guarda (201) |
 | GET | `/runs/{id}` | detalle |
 | DELETE | `/runs/{id}` | borra |

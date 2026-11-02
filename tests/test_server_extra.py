@@ -86,6 +86,21 @@ class TestServerExtra(unittest.TestCase):
         status, _, _ = request(self.base, "POST", "/jobs", {"suite_path": "../fuera.json", "interval_s": 60})
         self.assertEqual(status, 400)
 
+    def test_compare_dos_runs(self):
+        _, _, b1 = request(self.base, "POST", "/runs", {"objetivo": "demo A", "inputs": {"root": str(self.root)}, "seed": 0})
+        _, _, b2 = request(self.base, "POST", "/runs", {"objetivo": "demo B", "inputs": {"root": str(self.root)}, "seed": 1})
+        a, b = json.loads(b1)["run_id"], json.loads(b2)["run_id"]
+        status, _, body = request(self.base, "GET", f"/compare?a={a}&b={b}")
+        self.assertEqual(status, 200)
+        d = json.loads(body)
+        self.assertEqual(d["a"], a)
+        self.assertEqual(d["b"], b)
+        self.assertIn("q_medio_a", d)
+        self.assertIn("metricas", d)
+        # run inexistente -> 404
+        status, _, _ = request(self.base, "GET", f"/compare?a={a}&b=run-000000000000")
+        self.assertEqual(status, 404)
+
 
 class TestServerAuth(unittest.TestCase):
     @classmethod

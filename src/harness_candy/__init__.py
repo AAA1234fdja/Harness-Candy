@@ -4,6 +4,7 @@ Ver docs/DISENO_COMBINADO.md para el mapeo seccion-del-PDF -> modulo.
 """
 from . import protocols, quality, harness, memory, pool, security, sandbox, dag, agents, components, runner, adk_bridge, ablation, backends, judge, metrics
 from . import schemas, retry, streaming, plugins, cache, failover, tools, alerts, report, storage, suite, evalkit, factory
+from . import auth, tenancy, agents_catalog, guards, scheduler, datasets, metrics_export, web, review, latencia
 from .backends import BackendError, OpenAICompatibleBackend
 from .judge import LLMJudge, calibrate, swap_test
 from .metrics import MetricsCollector
@@ -45,6 +46,8 @@ from .scheduler import Job, Scheduler
 from .datasets import Comparison, compare_reports, load_dataset, run_dataset
 from .metrics_export import OtlpExporter, otlp_spans, prometheus_text
 from .web import dashboard_html
+from .review import ReviewAgent, DEFAULT_ALLOWED_PREFIXES
+from .latencia import bench_latencia, comparar_latencias, percentiles
 
 __version__ = "0.1.0"
 

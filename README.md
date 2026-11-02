@@ -27,7 +27,7 @@ Solo usa la librería estándar de Python (≥ 3.10). Sin dependencias obligator
 
 ```bash
 pip install -e .          # o simplemente añade src/ al PYTHONPATH
-python -m unittest discover -s tests -v   # 322 tests
+python -m unittest discover -s tests -v   # 338 tests
 python examples/demo_e2e.py               # flujo completo ISA→…→ELY
 python examples/demo_ablation.py          # experimento de ablación A/B/C/D
 python examples/demo_suite.py             # suite JSON de tareas como DAG
@@ -118,9 +118,10 @@ src/harness_candy/
   runner.py       run_task (Listado 1) + CoworkRunner (flujo de 8 pasos)
   adk_bridge.py   DAG → flujo ADK (Sequential/Parallel) si google-adk está instalado
   ablation.py     experimento A/B/C/D con veredicto estadístico
-tests/            264 tests (unittest, sin dependencias)
+tests/            338 tests (unittest, sin dependencias)
 examples/         demo_e2e, demo_ablation, demo_xkiro, demo_suite, demo_golden,
-                  demo_cli, demo_server, bench_escalabilidad, suites/, golden/
+                  demo_agents, demo_cli, demo_server, bench_escalabilidad,
+                  suites/, golden/, agents.json
 benchmarks/       bench_escalabilidad.py (escalabilidad del DAG, métricas y tiempos)
 docs/             DISENO_COMBINADO.md (mapeo al PDF), adr/ (ADR-001..005), ROADMAP.md,
                   CHECKLIST_V3_ESTADO.md, API.md (referencia), OPERACION.md (runbooks),
@@ -151,7 +152,13 @@ Nuevos módulos de la expansión (stdlib-only):
   datasets.py   datasets JSONL de evaluacion + comparacion A/B
   metrics_export.py  /metrics (Prometheus) + spans OTLP/JSON + OtlpExporter
   web.py        dashboard en / (HTML+JS, SSE en vivo, URLs relativas)
+  review.py     ReviewAgent: revisión automática de PRs (diff en alcance,
+                sintaxis ast de los .py añadidos, secretos en el diff)
+  latencia.py   bench de latencia con percentiles p50/p90/p95/p99
 ```
+
+El servidor expone además `GET /compare?a=<run>&b=<run>` (delta de Q y métricas
+entre dos corridas).
 
 El servidor (`harness-candy serve`) expone ademas: panel en `/`, `/metrics`,
 `/jobs`, y auth bearer opcional con `HARNESS_API_TOKEN` (ver `docs/API.md`).

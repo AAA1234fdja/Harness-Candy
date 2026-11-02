@@ -51,6 +51,29 @@ from .web import dashboard_html
 MAX_BODY = 1_000_000  # 1 MB
 
 
+def _compare_runs(ra: dict, rb: dict) -> dict:
+    """Compara dos corridas guardadas: Q medio, duración, métricas numéricas."""
+    def q_medio(r):
+        qs = [v for v in r.get("qs", {}).values() if isinstance(v, (int, float))]
+        return round(sum(qs) / len(qs), 4) if qs else None
+
+    ma, mb = ra.get("metrics", {}), rb.get("metrics", {})
+    metricas = {}
+    for k in sorted(set(ma) | set(mb)):
+        va, vb = ma.get(k), mb.get(k)
+        if isinstance(va, (int, float)) and isinstance(vb, (int, float)) and not isinstance(va, bool):
+            metricas[k] = {"a": va, "b": vb, "delta": round(vb - va, 4)}
+    return {
+        "a": ra.get("run_id"),
+        "b": rb.get("run_id"),
+        "q_medio_a": q_medio(ra),
+        "q_medio_b": q_medio(rb),
+        "duracion_a": ra.get("duracion"),
+        "duracion_b": rb.get("duracion"),
+        "metricas": metricas,
+    }
+
+
 class ServerConfig:
     def __init__(
         self,
@@ -188,6 +211,13 @@ class HarnessHandler(BaseHTTPRequestHandler):
                 if sched is None:
                     return self._send_json({"error": "scheduler desactivado"}, status=404)
                 return self._send_json({"jobs": sched.list(), "history": sched.history[-50:]})
+            if path == "/compare":
+                a = (qs.get("a") or [""])[0]
+                b = (qs.get("b") or [""])[0]
+                ra, rb = self.cfg.store.get(a), self.cfg.store.get(b)
+                if ra is None or rb is None:
+                    return self._send_json({"error": "run no encontrada (usa ?a=<run_id>&b=<run_id>)"}, status=404)
+                return self._send_json(_compare_runs(ra, rb))
             if path == "/health":
                 return self._send_json({"status": "ok", "version": __version__, "schema_version": SCHEMA_VERSION, "time": time.time()})
             if path == "/runs":

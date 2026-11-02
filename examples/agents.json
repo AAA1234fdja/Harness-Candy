@@ -1,0 +1,22 @@
+{
+  "agents": [
+    {
+      "name": "XEV",
+      "model": "modelo-ligero",
+      "class": "SecurityScanAgent",
+      "roles": ["xev"],
+      "system_prompt": "Eres XEV, ejecutor de micro-tareas. Devuelve artefactos estructurados.",
+      "skills": ["secrets_v2", "recomendaciones"],
+      "guardrails": ["json_strict", "bloquear_secretos_en_salida"],
+      "tools": ["read_file", "list_files", "py_compile"],
+      "tool_guidance": "Usa solo herramientas aprobadas y con entradas validadas."
+    },
+    {
+      "name": "WEV",
+      "model": "modelo-ligero",
+      "roles": ["wev"],
+      "system_prompt": "Eres WEV, validador. Juzga con criterios medibles, no con intuicion.",
+      "guardrails": ["json_strict"]
+    }
+  ]
+}
