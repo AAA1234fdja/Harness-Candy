@@ -179,3 +179,44 @@ def run_ablation(
     if metrics["D"].q_mean < metrics["C"].q_mean - 0.02:
         verdict += " Advertencia: D (con ELY) rinde peor que C: revisar calibracion del juez independiente."
     return AblationReport(metrics=metrics, verdict=verdict)
+
+
+def k_curve(
+    tasks: list,
+    agent,
+    pool: ModelPool,
+    wev: WEV,
+    *,
+    ks: tuple[int, ...] = (1, 2, 4),
+    m: int = 3,
+    alpha: float = 0.05,
+    c_a: float = 1.0,
+    seed: int = 0,
+) -> list[dict]:
+    """Estima con DATOS PROPIOS la curva de mejora frente a k (--k N).
+
+    Corre la configuracion C (con adaptador Harness^2) para cada k y devuelve
+    [(k, q_medio, costo_por_tarea)]. El documento advierte que su curva es
+    ilustrativa: aqui se mide. El costo de sondeo crece linealmente con k
+    ((1 + 2k) m c_a) y la mejora tiende a saturar.
+    """
+    out = []
+    for k in ks:
+        q_scores, cost = [], 0.0
+        for i, task in enumerate(tasks):
+            tseed = seed + i * 17
+            adapter = Harness2Adapter()
+            h, _ev = adapter.adapt(agent, task, k=k, m=m, score_fn=wev.score, base_seed=tseed)
+            artifact = agent.run(task, harness=h, seed=tseed)
+            _msg, q = wev.evaluate(artifact, task.criterios)
+            q_scores.append(q)
+            cost += (1 + 2 * k) * m * c_a + c_a
+        out.append(
+            {
+                "k": k,
+                "q_medio": round(statistics.fmean(q_scores), 4) if q_scores else 0.0,
+                "costo_por_tarea": round(cost / len(tasks), 2) if tasks else 0.0,
+                "costo_sondeo_unitario": (1 + 2 * k) * m * c_a,
+            }
+        )
+    return out

@@ -3,6 +3,11 @@
 Este paquete implementa, de forma ejecutable y testeada, las propuestas del
 documento de diseño combinado (2026-11-02). A continuación, sección por sección.
 
+**Leyenda usada en este documento** (ítem 10 del checklist): cada afirmación se
+etiqueta como **[EXISTENTE]** (está en ADK/Harness² o en la literatura citada),
+**[PROPUESTA]** (lo añade este diseño y hay que validarlo experimentalmente) o
+**[HIPÓTESIS]** (idea a confirmar con mediciones).
+
 ## 1. Principio de diseño: tres responsabilidades separadas
 
 | Pieza del documento | Implementación |

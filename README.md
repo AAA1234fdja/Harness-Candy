@@ -118,6 +118,36 @@ examples/         demo_e2e.py, demo_ablation.py
 docs/             DISENO_COMBINADO.md (mapeo detallado al PDF)
 ```
 
+## Estado del checklist y documentación
+
+- `docs/CHECKLIST_ESTADO.md` — el checklist de Ely–Cowork verificado ítem por ítem
+  contra el código, con la evidencia (test/ejemplo) de cada uno y las decisiones
+  que el documento dejaba abiertas (almacén de harness separado; forma `√m` de la ec. 2).
+- `docs/DISENO_COMBINADO.md` — mapeo detallado sección-del-PDF → módulo, con leyenda
+  [EXISTENTE] / [PROPUESTA] / [HIPÓTESIS] en cada afirmación.
+- `docs/INDEPENDENCIA.md` — dependencias críticas identificadas y lista priorizada
+  de migración a Rust (YEV, almacén de variables, sandbox), con mediciones de partida.
+- `docs/arquitectura.mmd` — diagrama mermaid de niveles y componentes (se renderiza en GitHub).
+
+## Métricas que se miden (y las que no)
+
+`metrics.MetricsCollector` (expuesto en `RunResult.metrics`) mide requisitos
+cumplidos, pruebas superadas, defectos por severidad, tiempo, costo de
+adaptación y de corridas, tokens, trabajo duplicado, mantenibilidad y
+escaladas/revisiones humanas. **No** se miden líneas de código generadas
+(el diseño lo desaconseja). WEV además revisa el *diff* (`check_diff_paths`),
+no solo el resultado final. Bench: `python examples/bench_escalabilidad.py 24`.
+
+## Decisiones tomadas (que el PDF dejaba abiertas)
+
+1. La biblioteca de harness (`HarnessStore`) **no comparte almacén** con la
+   memoria de conocimiento (`KnowledgeMemory`): ciclos de vida, permisos y
+   versionado distintos.
+2. En la ec. (2) se usa la forma estándar del error estándar (`√m`); el PDF
+   imprime `/m`.
+3. Mann–Whitney se usa cuando Q es binaria/discreta o las muestras son chicas;
+   por defecto Compose usa la regla δ de la ec. (2).
+
 ## Notas de seguridad
 
 - El código generado por XEV **siempre** corre en `sandbox.run_sandboxed`:

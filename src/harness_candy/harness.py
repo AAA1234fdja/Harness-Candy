@@ -258,17 +258,19 @@ ScoreFn = Callable[[Any, Sequence], float]
 
 
 @dataclass
+@dataclass
 class AdaptationEvidence:
     """Evidencia respaldada de la adaptacion (para la biblioteca de harness)."""
 
     reference_scores: list[float]
     candidate_scores: dict[str, list[float]]
-    adopted: str  # "candidato" o "referencia"
+    adopted: str  # "candidato" | "compuesto" | "referencia"
     adopted_harness: str
     delta: float
     k: int
     m: int
     cost: float
+    trajectories: dict[str, list[str]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -280,7 +282,28 @@ class AdaptationEvidence:
             "k": self.k,
             "m": self.m,
             "cost": self.cost,
+            "trajectories": self.trajectories,
         }
+
+
+def merge_harnesses(h0: Harness, winners: list[Harness]) -> Harness:
+    """Compose: fusiona lo que funciono (union de listas/dicts; el prompt del
+    primer ganador prevalece). Descarta lo que choca."""
+    if not winners:
+        return h0
+    merged = h0
+    for w in winners:
+        merged = merged.evolve(
+            guardrails=list(w.guardrails),
+            skills=list(w.skills),
+            scripts=list(w.scripts),
+            plugins=list(w.plugins),
+            subagents=list(w.subagents),
+            memory=dict(w.memory),
+        )
+    merged = replace(merged, system_prompt=winners[0].system_prompt or h0.system_prompt,
+                     tool_guidance=winners[0].tool_guidance or h0.tool_guidance)
+    return merged
 
 
 class Harness2Adapter:
@@ -312,13 +335,19 @@ class Harness2Adapter:
         score_fn: ScoreFn,
         phase: str,
         base_seed: int,
-    ) -> list[float]:
-        scores = []
+    ) -> tuple[list[float], list[str]]:
+        """Ejecuta m corridas y guarda la trayectoria de cada una."""
+        scores: list[float] = []
+        trajectories: list[str] = []
         for i in range(m):
             seed = base_seed + i
             artifact = agent.run(task, harness=harness, seed=seed)
             q = float(score_fn(artifact, task.criterios))
             scores.append(q)
+            trajectories.append(
+                f"seed={seed} q={q:.3f} harness={harness.label()} "
+                f"artifact={str(artifact.content)[:200]}"
+            )
             if self.tracer is not None:
                 self.tracer.record(
                     run_id=self.run_id,
@@ -328,8 +357,9 @@ class Harness2Adapter:
                     harness=harness.label(),
                     phase=phase,
                     q=q,
+                    extra={"artifact": str(artifact.content)[:200]},
                 )
-        return scores
+        return scores, trajectories
 
     def adapt(
         self,
@@ -342,23 +372,38 @@ class Harness2Adapter:
         base_seed: int = 0,
         h0: Harness | None = None,
     ) -> tuple[Harness, AdaptationEvidence]:
-        """Ejecuta Propose -> Probe -> Compose y devuelve (harness, evidencia)."""
+        """Ejecuta Propose -> Probe -> Compose y devuelve (harness, evidencia).
+
+        Compose: adopta el mejor candidato si supera delta (ec. 2); si no,
+        pero al menos dos candidatos mejoraron individualmente, fusiona los
+        ganadores (union de sus componentes); si no, conserva h0.
+        """
         h0 = h0 or agent.default_harness
-        ref_scores = self._probe(agent, task, h0, m, score_fn, "reference", base_seed)
+        ref_scores, ref_traj = self._probe(agent, task, h0, m, score_fn, "reference", base_seed)
 
         candidates = self.proposer(h0, task.kind, k)
         best: Harness | None = None
         best_scores: list[float] = []
         cand_scores: dict[str, list[float]] = {}
+        trajectories: dict[str, list[str]] = {"reference": ref_traj}
+        scored: list[tuple[Harness, list[float]]] = []
         for cand in candidates:
-            s = self._probe(agent, task, cand, m, score_fn, "probe", base_seed)
+            s, traj = self._probe(agent, task, cand, m, score_fn, "probe", base_seed)
             cand_scores[cand.label()] = s
+            trajectories[cand.label()] = traj
+            scored.append((cand, s))
             if best is None or statistics.fmean(s) > statistics.fmean(best_scores):
                 best, best_scores = cand, s
 
         cost = (1 + 2 * k) * m  # en unidades de corrida c_a = 1
-        if best is not None and should_adopt(ref_scores, best_scores, self.alpha):
-            adopted = best
+        winners = [c for c, s in scored if should_adopt(ref_scores, s, self.alpha)]
+        if len(winners) >= 2:
+            # Compose fusiona lo que funciono (>=2 candidatos superaron a h0
+            # por encima del ruido) y descarta lo que choca.
+            adopted = merge_harnesses(h0, winners)
+            adopted_kind = "compuesto"
+        elif len(winners) == 1:
+            adopted = winners[0]
             adopted_kind = "candidato"
         else:
             adopted = h0
@@ -374,6 +419,7 @@ class Harness2Adapter:
             k=k,
             m=m,
             cost=cost,
+            trajectories=trajectories,
         )
         return adopted, evidence
 

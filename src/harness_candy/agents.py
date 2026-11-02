@@ -105,7 +105,11 @@ class Agent:
         h = harness or self.default_harness
         prompt = self.build_prompt(task, h)
         raw = self.backend.complete(prompt, system=h.system_prompt, model=self.model, seed=seed)
-        return Artifact(task.task_id, content=raw, meta={"harness": h.label(), "model": self.model, "seed": seed})
+        meta = {"harness": h.label(), "model": self.model, "seed": seed}
+        usage = getattr(self.backend, "last_usage", None) or {}
+        if usage.get("total_tokens"):
+            meta["tokens"] = usage["total_tokens"]  # costo real por tarea
+        return Artifact(task.task_id, content=raw, meta=meta)
 
 
 # ---------------------------------------------------------------------------

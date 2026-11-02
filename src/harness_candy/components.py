@@ -56,8 +56,9 @@ class Plan:
     objetivo: str
     arquitectura: str
     requisitos: list[str]
-    hitos: list[dict]  # {task_id, kind, instruction, deps, agent}
+    hitos: list[dict]  # {task_id, kind, instruction, deps, agent, irreversible?, herramienta?}
     criterios: dict[str, list[Criterion]]  # por task_id
+    restricciones: list[str] = field(default_factory=list)
     operaciones_irreversibles: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -67,8 +68,23 @@ class Plan:
             "requisitos": self.requisitos,
             "hitos": self.hitos,
             "criterios": {k: [c.to_dict() for c in v] for k, v in self.criterios.items()},
+            "restricciones": self.restricciones,
             "operaciones_irreversibles": self.operaciones_irreversibles,
         }
+
+
+# Palabras clave que marcan una operacion como IRREVERSIBLE (revision humana)
+IRREVERSIBLE_KEYWORDS = (
+    "borrar", "eliminar", "delete", "drop", "deploy", "desplegar", "publicar",
+    "produccion", "producción", "irreversible", "ejecutar en prod",
+)
+
+RESTRICCIONES_DEFAULT = [
+    "XEV no ejecuta comandos fuera de su allowlist",
+    "XEV corre en sandbox sin red y sin credenciales heredadas",
+    "ningun agente modifica archivos fuera del alcance permitido",
+    "toda salida pasa la puerta de seguridad (PII/secretos)",
+]
 
 
 class ISA:
@@ -94,16 +110,18 @@ class ISA:
                     requisitos=data.get("requisitos", []),
                     hitos=data.get("hitos", []),
                     criterios={k: [Criterion(**c) for c in v] for k, v in data.get("criterios", {}).items()},
+                    restricciones=data.get("restricciones", list(RESTRICCIONES_DEFAULT)),
                     operaciones_irreversibles=data.get("operaciones_irreversibles", []),
                 )
             except Exception:
                 pass  # cae a la heuristica determinista
         # Plan determinista por defecto (sirve sin LLM externo)
+        irreversible = any(k in objetivo.lower() for k in IRREVERSIBLE_KEYWORDS)
         if "seguridad" in objetivo.lower() or "security" in objetivo.lower():
             root = inputs.get("root", ".")
             hitos = [
-                {"task_id": "t-001", "kind": "security_scan", "instruction": f"Escanear seguridad del repo {root}", "deps": [], "agent": "XEV"},
-                {"task_id": "t-002", "kind": "write_report", "instruction": "Redactar informe final a partir del escaneo", "deps": ["t-001"], "agent": "XEV"},
+                {"task_id": "t-001", "kind": "security_scan", "instruction": f"Escanear seguridad del repo {root}", "deps": [], "agent": "XEV", "herramienta": "security_scan"},
+                {"task_id": "t-002", "kind": "write_report", "instruction": "Redactar informe final a partir del escaneo", "deps": ["t-001"], "agent": "XEV", "herramienta": "security_scan"},
             ]
             criterios = {"t-001": DEFAULT_CRITERIA["security_scan"], "t-002": DEFAULT_CRITERIA["write_report"]}
             return Plan(
@@ -112,10 +130,19 @@ class ISA:
                 requisitos=["informe JSON valido", "sin secretos hardcodeados", "recomendaciones incluidas"],
                 hitos=hitos,
                 criterios=criterios,
-                operaciones_irreversibles=[],
+                restricciones=list(RESTRICCIONES_DEFAULT),
+                operaciones_irreversibles=[objetivo] if irreversible else [],
             )
-        hitos = [{"task_id": "t-001", "kind": "execute", "instruction": objetivo, "deps": [], "agent": "XEV"}]
-        return Plan(objetivo=objetivo, arquitectura="tarea unica", requisitos=[], hitos=hitos, criterios={"t-001": DEFAULT_CRITERIA.get("write_report", [])})
+        hitos = [{"task_id": "t-001", "kind": "execute", "instruction": objetivo, "deps": [], "agent": "XEV", "irreversible": irreversible}]
+        return Plan(
+            objetivo=objetivo,
+            arquitectura="tarea unica",
+            requisitos=[],
+            hitos=hitos,
+            criterios={"t-001": DEFAULT_CRITERIA.get("write_report", [])},
+            restricciones=list(RESTRICCIONES_DEFAULT),
+            operaciones_irreversibles=[objetivo] if irreversible else [],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -229,13 +256,37 @@ def _now() -> float:
 # ---------------------------------------------------------------------------
 
 class XEV:
-    """Ejecuta micro-tareas atomicas y entrega artefactos verificables."""
+    """Ejecuta micro-tareas atomicas SOLO con herramientas/comandos autorizados.
 
-    def __init__(self, agents: dict[str, Agent], security: SecurityGate | None = None):
+    Allowlist (el ejecutor no corre nada fuera de ella) y entrega evidencias
+    (registro de ejecucion en el mensaje xev / meta del artefacto).
+    """
+
+    ALLOWED_TOOLS = {"security_scan", "read_file", "list_files", "write_report", "shell"}
+    # prefijos de comando autorizados para la herramienta "shell" (sandbox)
+    ALLOWED_COMMAND_PREFIXES: tuple[str, ...] = ()
+
+    def __init__(self, agents: dict[str, Agent], security: SecurityGate | None = None,
+                 allowed_command_prefixes: tuple[str, ...] | None = None):
         self.agents = agents
         self.security = security or SecurityGate()
+        import sys as _sys
+
+        self.allowed_command_prefixes = allowed_command_prefixes or (_sys.executable, "git", "ls", "cat", "grep")
+
+    def check_tool_allowed(self, herramienta: str) -> None:
+        if herramienta and herramienta not in self.ALLOWED_TOOLS:
+            raise PermissionError(f"herramienta no autorizada para XEV: {herramienta!r}")
+
+    def check_command_allowed(self, command: list[str]) -> None:
+        if not command:
+            raise PermissionError("comando vacio")
+        exe = command[0]
+        if not any(exe == p or exe.endswith("/" + p) or p in exe for p in self.allowed_command_prefixes):
+            raise PermissionError(f"comando no autorizado para XEV: {exe!r}")
 
     def execute(self, node: TaskNode, context: dict) -> Artifact:
+        self.check_tool_allowed(node.herramienta or node.kind)
         agent = self.agents.get(node.agent) or self.agents.get("XEV")
         if agent is None:
             raise RuntimeError("no hay agente registrado para XEV")
@@ -251,6 +302,12 @@ class XEV:
         )
         harness = context.get("harnesses", {}).get(node.task_id) or context.get("harness")
         artifact = agent.run(task, harness=harness, seed=context.get("seed", 0))
+        artifact.meta["registro_ejecucion"] = {
+            "herramienta": node.herramienta or node.kind,
+            "agente": agent.name,
+            "modelo": agent.model,
+            "allowlist_ok": True,
+        }
         # puerta de seguridad de SALIDA sobre el artefacto
         gate = self.security.check_output(artifact.to_text())
         artifact.meta["security_gate"] = gate.to_dict()
@@ -266,22 +323,72 @@ class XEV:
 CheckFn = Callable[[Artifact], tuple[bool, list[Hallazgo]]]
 
 
+def linter_basico(root: str) -> list[Hallazgo]:
+    """Analisis estatico con ast sobre los .py de ``root``: archivos que no
+    parsean e imports declarados pero no usados (hallazgos de mantenibilidad)."""
+    import ast
+
+    hallazgos: list[Hallazgo] = []
+    root_p = Path(root)
+    for p in sorted(root_p.rglob("*.py")):
+        if ".git" in p.parts or "__pycache__" in p.parts:
+            continue
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8", errors="ignore"), filename=str(p))
+        except SyntaxError as e:
+            hallazgos.append(Hallazgo("linter", "alta", f"{p}: error de sintaxis: {e}"))
+            continue
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for a in node.names:
+                    imported.add((a.asname or a.name).split(".")[0])
+            elif isinstance(node, ast.ImportFrom):
+                for a in node.names:
+                    imported.add(a.asname or a.name)
+        usados = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} | {
+            n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)
+        }
+        for nombre in sorted(imported - usados):
+            hallazgos.append(Hallazgo("linter", "baja", f"{p}: import sin usar: {nombre}"))
+    return hallazgos
+
+
+def check_diff_paths(diff_text: str, allowed_prefixes: list[str]) -> tuple[bool, list[Hallazgo]]:
+    """Revisa el diff: todos los archivos tocados deben estar dentro del
+    alcance permitido (WEV revisa el diff, no solo el resultado final)."""
+    import re as _re
+
+    paths = _re.findall(r"^\+\+\+ b?/?(.+)$", diff_text, flags=_re.MULTILINE)
+    paths += _re.findall(r"^--- a?/?(.+)$", diff_text, flags=_re.MULTILINE)
+    paths = [p.strip() for p in paths if p.strip() and p.strip() != "/dev/null"]
+    fuera = [p for p in paths if not any(p.startswith(pref) for pref in allowed_prefixes)]
+    hallazgos = [Hallazgo("diff", "alta", f"el diff toca archivos fuera del alcance: {p}") for p in fuera]
+    return (not fuera), hallazgos
+
+
 class WEV:
     """Valida entregables contra los criterios de aceptacion de ISA.
 
     La validacion combina juicio y mecanismos deterministas (compilacion,
-    pruebas, analisis estatico, puertas de seguridad). WEV decide si el
-    entregable cumple las condiciones para aceptarse.
+    pruebas, analisis estatico, revision del diff, puertas de seguridad).
+    WEV decide si el entregable cumple las condiciones para aceptarse.
+    El juez LLM (opcional) es fail-closed: solo puede restar calidad, nunca
+    sumar; en criterios objetivos pesa mas lo determinista.
     """
 
-    def __init__(self, security: SecurityGate | None = None, extra_checks: dict[str, CheckFn] | None = None):
+    def __init__(self, security: SecurityGate | None = None, extra_checks: dict[str, CheckFn] | None = None,
+                 judge=None):
         self.security = security or SecurityGate()
+        self.judge = judge
         self.checks: dict[str, CheckFn] = {
             "informe_json_valido": self._check_json,
             "compile_ok": self._check_compile,
             "sin_secretos_criticos": self._check_secrets,
             "tiene_recomendaciones": self._check_recs,
             "pasa_guardias_salida": self._check_security,
+            "linter_basico": self._check_linter,
+            "diff_dentro_de_alcance": self._check_diff,
         }
         if extra_checks:
             self.checks.update(extra_checks)
@@ -311,6 +418,34 @@ class WEV:
         gate = self.security.check_output(artifact.to_text())
         return gate.ok, gate.hallazgos
 
+    def _check_linter(self, artifact: Artifact) -> tuple[bool, list[Hallazgo]]:
+        root = ""
+        if isinstance(artifact.content, dict):
+            root = artifact.content.get("repo", "") or artifact.content.get("root", "")
+        root = root or artifact.meta.get("root", "")
+        if not root or not Path(root).exists():
+            return True, []  # nada que analizar -> no aplica
+        hallazgos = linter_basico(root)
+        graves = [h for h in hallazgos if h.severidad in ("alta", "critica")]
+        return (not graves), hallazgos
+
+    def _check_diff(self, artifact: Artifact) -> tuple[bool, list[Hallazgo]]:
+        diff = artifact.meta.get("diff")
+        if not diff:
+            return True, []  # no hubo cambios de archivos -> no aplica
+        allowed = artifact.meta.get("allowed_paths", ["."])
+        return check_diff_paths(diff, allowed)
+
+    def _apply_judge(self, artifact: Artifact, criterios: list[Criterion], hallazgos: list[Hallazgo]) -> list[Hallazgo]:
+        """Juez LLM independiente, fail-closed: solo puede restar calidad."""
+        if self.judge is None:
+            return hallazgos
+        js = self.judge.score(artifact.meta.get("instruction", artifact.task_id), artifact, criterios)
+        out = list(hallazgos) + js.hallazgos
+        if js.q < 0.5:
+            out.append(Hallazgo("juez_llm", "alta", f"el juez independiente puntuo {js.q:.2f} (< 0.5)"))
+        return out
+
     # -- evaluacion completa --
     def evaluate(self, artifact: Artifact, criterios: list[Criterion]) -> tuple[WevMessage, float]:
         checks: dict[str, bool] = {}
@@ -327,6 +462,7 @@ class WEV:
             if ok:
                 cumplidos.append(c.id)
             hallazgos.extend(found)
+        hallazgos = self._apply_judge(artifact, criterios, hallazgos)
         q = score_q(criterios, cumplidos, hallazgos)
         veredicto = "aprobado" if q >= 0.6 and all(checks.get(c.id, False) for c in criterios if c.peso >= 2.0) else "rechazado"
         # pesos altos = criterios criticos: deben cumplirse para aprobar

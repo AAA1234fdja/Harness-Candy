@@ -101,6 +101,7 @@ class OpenAICompatibleBackend:
         except urllib.error.URLError as e:
             raise BackendError(f"no se pudo contactar {self.base_url}: {e.reason}") from e
         try:
+            self.last_usage = data.get("usage", {}) or {}
             return data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as e:
             raise BackendError(f"respuesta inesperada de {self.base_url}: {str(data)[:300]}") from e

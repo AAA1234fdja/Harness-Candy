@@ -107,6 +107,67 @@ def should_adopt(
 
 
 # ---------------------------------------------------------------------------
+# Test de Mann-Whitney (alternativa cuando Q es binaria/discreta o m es chico)
+# ---------------------------------------------------------------------------
+
+def mann_whitney_u(scores_a: Sequence[float], scores_b: Sequence[float]) -> tuple[float, float]:
+    """Estadistico U de Mann-Whitney (a vs b) y p-valor one-sided (a > b).
+
+    Aproximacion normal con correccion por empates (suficiente para m >= 3).
+    Devuelve (U, p_value) donde p es P(U >= observado | H0), one-sided.
+    """
+    a = list(scores_a)
+    b = list(scores_b)
+    n1, n2 = len(a), len(b)
+    if n1 == 0 or n2 == 0:
+        raise ValueError("muestras vacias")
+    combined = [(v, 0) for v in a] + [(v, 1) for v in b]
+    combined.sort(key=lambda t: t[0])
+    # rangos con promedio en empates
+    ranks = [0.0] * len(combined)
+    i = 0
+    while i < len(combined):
+        j = i
+        while j + 1 < len(combined) and combined[j + 1][0] == combined[i][0]:
+            j += 1
+        avg = (i + j) / 2.0 + 1.0
+        for k in range(i, j + 1):
+            ranks[k] = avg
+        i = j + 1
+    r1 = sum(r for r, (_, g) in zip(ranks, combined) if g == 0)
+    u1 = r1 - n1 * (n1 + 1) / 2.0
+    n = n1 + n2
+    mean_u = n1 * n2 / 2.0
+    # varianza con correccion por empates
+    from collections import Counter
+
+    counts = Counter(v for v, _ in combined)
+    tie_term = sum(c**3 - c for c in counts.values())
+    var_u = n1 * n2 / 12.0 * ((n + 1) - tie_term / (n * (n - 1)) if n > 1 else 0.0)
+    if var_u <= 0:
+        return u1, 0.0 if u1 > mean_u else 1.0
+    z = (u1 - mean_u) / math.sqrt(var_u)
+    p = 0.5 * math.erfc(z / math.sqrt(2.0))  # one-sided P(Z >= z)
+    return u1, p
+
+
+def mann_whitney_adopt(
+    scores_ref: Sequence[float],
+    scores_cand: Sequence[float],
+    alpha: float = 0.05,
+) -> bool:
+    """Adopta h' si el test de Mann-Whitney (one-sided) dice que cand > ref.
+
+    Se usa cuando Q es binaria/discreta o las muestras son pequenas;
+    por defecto Compose usa la regla delta de la ecuacion (2).
+    """
+    if len(scores_ref) != len(scores_cand) or not scores_ref:
+        raise ValueError("misma cantidad de corridas en referencia y candidato")
+    _, p = mann_whitney_u(scores_cand, scores_ref)
+    return p < alpha and statistics.fmean(scores_cand) > statistics.fmean(scores_ref)
+
+
+# ---------------------------------------------------------------------------
 # Trazabilidad: registro JSONL reproducible (run_id, modelo, semilla, harness)
 # ---------------------------------------------------------------------------
 

@@ -37,12 +37,15 @@ class TaskNode:
     permite_subagentes: bool = False
     profundidad_max: int = 1
     inputs: dict = field(default_factory=dict)
+    herramienta: str = ""  # p.ej. "shell", "security_scan"; XEV valida contra su allowlist
+    deadline: Optional[float] = None  # plazo en segundos desde el inicio del nodo
+    irreversible: bool = False  # si True, NO se ejecuta: pasa a revision humana
 
 
 @dataclass
 class NodeResult:
     task_id: str
-    status: str  # pending | running | done | failed | escalated
+    status: str  # pending | running | done | failed | escalated | cancelled | human_review
     artifact: Any = None
     wev: Optional[WevMessage] = None
     attempts: int = 0
@@ -146,8 +149,15 @@ class DAGExecutor:
     def execute(self, dag: TaskDAG, context: dict | None = None) -> dict[str, NodeResult]:
         context = dict(context or {})
         context.setdefault("depth", 0)
+        cancel_event = context.get("cancel_event")  # threading.Event opcional: cancela la ejecucion
         results: dict[str, NodeResult] = {}
         for layer in dag.layers():
+            if cancel_event is not None and cancel_event.is_set():
+                for tid in layer:
+                    if tid not in results:
+                        results[tid] = NodeResult(task_id=tid, status="cancelled", finished_at=time.time())
+                        self.on_event("cancelled", {"task_id": tid})
+                continue
             pending = {tid: dag.nodes[tid] for tid in layer}
             # reintentos con retroalimentacion wev mientras queden intentos
             while pending:
@@ -177,6 +187,27 @@ class DAGExecutor:
         attempts = (res.attempts if res else 0) + 1
         res = NodeResult(task_id=node.task_id, status="running", attempts=attempts, started_at=time.time())
         self.on_event("start", {"task_id": node.task_id, "attempt": attempts})
+        # Revision humana: las operaciones irreversibles NO se ejecutan solos
+        if node.irreversible:
+            out = NodeResult(
+                task_id=node.task_id, status="human_review", attempts=attempts,
+                error="operacion irreversible: requiere aprobacion humana (ISA la marco)",
+                started_at=res.started_at,
+            )
+            out.finished_at = time.time()
+            self.on_event("human_review", {"task_id": node.task_id})
+            return out
+        # Plazo (deadline) por nodo
+        started = context.get("node_started_at", {})
+        if node.deadline is not None and node.task_id in started:
+            if time.time() - started[node.task_id] > node.deadline:
+                out = NodeResult(
+                    task_id=node.task_id, status="failed", attempts=attempts,
+                    error=f"deadline excedido ({node.deadline}s)", started_at=res.started_at,
+                )
+                out.finished_at = time.time()
+                return out
+        context.setdefault("node_started_at", {})[node.task_id] = time.time()
         try:
             out = self.handler(node, context)
             out.task_id = node.task_id

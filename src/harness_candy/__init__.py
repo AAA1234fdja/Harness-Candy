@@ -2,7 +2,11 @@
 
 Ver docs/DISENO_COMBINADO.md para el mapeo seccion-del-PDF -> modulo.
 """
-from . import protocols, quality, harness, memory, pool, security, sandbox, dag, agents, components, runner, adk_bridge, ablation
+from . import protocols, quality, harness, memory, pool, security, sandbox, dag, agents, components, runner, adk_bridge, ablation, backends, judge, metrics
+from .backends import BackendError, OpenAICompatibleBackend
+from .judge import LLMJudge, calibrate, swap_test
+from .metrics import MetricsCollector
+from .components import check_diff_paths, linter_basico
 from .protocols import (
     Envelope, Hallazgo, ProtocolError, ProtocolMessage, WevMessage, XevMessage, YevMessage, ZevMessage, validate,
 )
@@ -17,14 +21,17 @@ from .agents import Agent, Artifact, LLMBackend, ScriptedBackend, SecurityScanAg
 from .components import ELY, ISA, WEV, XEV, YEV, ZEV, Plan
 from .runner import CoworkRunner, RunResult, run_task
 from .adk_bridge import build_adk_flow, build_flow_spec
-from .ablation import AblationReport, run_ablation
+from .ablation import AblationReport, k_curve, run_ablation
+from .quality import mann_whitney_adopt
 
 __version__ = "0.1.0"
 
 __all__ = [
     "protocols", "quality", "harness", "memory", "pool", "security", "sandbox",
     "dag", "agents", "components", "runner", "adk_bridge", "ablation", "backends",
-    "BackendError", "OpenAICompatibleBackend",
+    "judge", "metrics",
+    "BackendError", "OpenAICompatibleBackend", "LLMJudge", "calibrate", "swap_test",
+    "MetricsCollector", "check_diff_paths", "linter_basico",
     "Envelope", "Hallazgo", "ProtocolError", "ProtocolMessage", "WevMessage", "XevMessage", "YevMessage", "ZevMessage", "validate",
     "Criterion", "RegressionGuard", "TraceLog", "compose_delta", "score_q", "should_adopt",
     "Budget", "Harness", "Harness2Adapter", "HarnessStore", "RuleBasedProposer", "harness2_adapter",

@@ -99,9 +99,11 @@ class TestAdaptadorPPC(unittest.TestCase):
 
     def test_adopta_cuando_mejora_sobre_ruido(self):
         # referencia mala (sin skills), candidatos con mejoras -> adopta
+        # (candidato si gana uno solo, compuesto si ganan >=2: Compose fusiona)
         adapter = Harness2Adapter()
         h, ev = adapter.adapt(self.agent, self.task, k=2, m=3, score_fn=score, base_seed=0)
-        self.assertEqual(ev.adopted, "candidato")
+        self.assertIn(ev.adopted, ("candidato", "compuesto"))
+        self.assertTrue(any("json" in g for g in h.guardrails))  # mejoro de verdad
         self.assertGreater(ev.cost, 0)
         self.assertEqual(ev.m, 3)
         self.assertEqual(ev.k, 2)

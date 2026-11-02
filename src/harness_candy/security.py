@@ -125,3 +125,19 @@ class SecurityGate:
             hallazgos=hallazgos,
             redacted=redacted,
         )
+
+    def evaluate_false_positive_rate(self, benign_texts: list[str]) -> dict:
+        """Mide el rechazo de prompts BENIGNOS (objetivo del documento: < 5 %).
+
+        Devuelve tasa de falsos positivos y los textos rechazados.
+        """
+        if not benign_texts:
+            return {"n": 0, "tasa_falsos_positivos": 0.0, "rechazados": []}
+        rechazados = [t for t in benign_texts if not self.check_input(t).ok]
+        return {
+            "n": len(benign_texts),
+            "tasa_falsos_positivos": len(rechazados) / len(benign_texts),
+            "rechazados": rechazados,
+            "umbral": 0.05,
+            "cumple": (len(rechazados) / len(benign_texts)) < 0.05,
+        }

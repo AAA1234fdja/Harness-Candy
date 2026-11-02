@@ -17,9 +17,10 @@ from .components import ELY, ISA, WEV, XEV, YEV, ZEV
 from .dag import DAGExecutor, NodeResult, TaskDAG, TaskNode
 from .harness import Budget, Harness, Harness2Adapter, HarnessStore
 from .memory import KnowledgeMemory, VariableMemory
+from .metrics import MetricsCollector
 from .pool import ModelPool
 from .protocols import WevMessage
-from .quality import TraceLog, new_run_id
+from .quality import Criterion, TraceLog, new_run_id, score_q
 
 
 def run_task(
@@ -72,6 +73,7 @@ class RunResult:
     costo_adaptacion: float
     trace_path: str
     duracion: float
+    metrics: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -85,6 +87,7 @@ class RunResult:
             "costo_adaptacion": self.costo_adaptacion,
             "trace_path": self.trace_path,
             "duracion": round(self.duracion, 3),
+            "metrics": self.metrics,
         }
 
 
@@ -147,12 +150,13 @@ class CoworkRunner:
         self.memory_vars.set(f"artifact:{node.task_id}", artifact.content, scope="task", actor="XEV")
         return NodeResult(task_id=node.task_id, status=status, artifact=artifact, wev=msg)
 
-    def run(self, objetivo: str, inputs: dict | None = None, seed: int = 0) -> RunResult:
+    def run(self, objetivo: str, inputs: dict | None = None, seed: int = 0, cancel_event=None) -> RunResult:
         start = time.time()
         run_id = new_run_id()
         self.trace_dir.mkdir(parents=True, exist_ok=True)
         tracer = TraceLog(self.trace_dir / f"{run_id}.jsonl")
         inputs = inputs or {}
+        metrics = MetricsCollector()
 
         # 1-2. recepcion del objetivo y planificacion (ISA)
         plan = self.isa.plan(objetivo, inputs)
@@ -161,7 +165,12 @@ class CoworkRunner:
         # 3. recuperacion de contexto (ZEV)
         zev_msg = self.zev.retrieve(objetivo, task_id=run_id)
         self.zev.remember(zev_msg)
-        context = {"seed": seed, "zev_fragmentos": [f["contenido"][:400] for f in zev_msg.fragmentos], "inputs": inputs}
+        context = {
+            "seed": seed,
+            "zev_fragmentos": [f["contenido"][:400] for f in zev_msg.fragmentos],
+            "inputs": inputs,
+            "cancel_event": cancel_event,
+        }
 
         # 4. distribucion (YEV): DAG con modelo/clave por nodo
         dag = self.yev.build_dag(plan, run_id=run_id)
@@ -180,16 +189,18 @@ class CoworkRunner:
         ely_informe = self.ely.audit(results, tracer.entries(), run_id=run_id)
         self.ely.remember_lessons(ely_informe, run_id)
 
-        # 8. consolidacion
+        # 8. consolidacion + metricas (seccion 10 del PDF: no se miden lineas de codigo)
         qs, wev_reports = {}, {}
         for tid, res in results.items():
+            node = dag.nodes[tid]
+            metrics.add_result(res, criterios_total=len(node.criterios))
             if res.wev is not None:
                 wev_reports[tid] = res.wev
                 checks = res.wev.checks
-                from .quality import Criterion, score_q
-
                 criterios = [Criterion(k, "", 1.0) for k in checks]
                 qs[tid] = score_q(criterios, [k for k, v in checks.items() if v], res.wev.hallazgos)
+                metrics.mark_cumplidos(sum(1 for v in checks.values() if v))
+            metrics.costo_corridas += 1.0  # costo por tarea: una corrida = 1 unidad
         aceptados = [tid for tid, r in results.items() if r.status == "done"]
         for tid in aceptados:
             self.memory_vars.set(f"consolidado:{tid}", True, scope="project", actor="YEV")
@@ -205,4 +216,5 @@ class CoworkRunner:
             costo_adaptacion=self.budget.spent_adapt,
             trace_path=str(tracer.path),
             duracion=time.time() - start,
+            metrics=metrics.snapshot(duracion=time.time() - start, costo_adapt=self.budget.spent_adapt),
         )
