@@ -27,9 +27,14 @@ Solo usa la librería estándar de Python (≥ 3.10). Sin dependencias obligator
 
 ```bash
 pip install -e .          # o simplemente añade src/ al PYTHONPATH
-python -m unittest discover -s tests -v   # 104 tests
+python -m unittest discover -s tests -v   # 264 tests
 python examples/demo_e2e.py               # flujo completo ISA→…→ELY
 python examples/demo_ablation.py          # experimento de ablación A/B/C/D
+python examples/demo_suite.py             # suite JSON de tareas como DAG
+python examples/demo_golden.py            # golden set con puerta (gate) de CI
+python examples/demo_server.py            # servidor HTTP local + pedidos reales
+harness-candy --help                      # CLI: run/suite/golden/report/serve/...
+harness-candy serve --port 8000           # API REST local (ver docs/API.md)
 ```
 
 Ejemplo mínimo:
@@ -113,12 +118,31 @@ src/harness_candy/
   runner.py       run_task (Listado 1) + CoworkRunner (flujo de 8 pasos)
   adk_bridge.py   DAG → flujo ADK (Sequential/Parallel) si google-adk está instalado
   ablation.py     experimento A/B/C/D con veredicto estadístico
-tests/            104 tests (unittest, sin dependencias)
-examples/         demo_e2e.py, demo_ablation.py, demo_xkiro.py, bench_escalabilidad.py
+tests/            264 tests (unittest, sin dependencias)
+examples/         demo_e2e, demo_ablation, demo_xkiro, demo_suite, demo_golden,
+                  demo_cli, demo_server, bench_escalabilidad, suites/, golden/
 benchmarks/       bench_escalabilidad.py (escalabilidad del DAG, métricas y tiempos)
-docs/             DISENO_COMBINADO.md (mapeo detallado al PDF), adr/ (ADR-001..005),
-                  ROADMAP.md, CHECKLIST_V3_ESTADO.md, templates/ (RFC, postmortem)
+docs/             DISENO_COMBINADO.md (mapeo al PDF), adr/ (ADR-001..005), ROADMAP.md,
+                  CHECKLIST_V3_ESTADO.md, API.md (referencia), OPERACION.md (runbooks),
+                  templates/ (RFC, postmortem)
 .github/workflows/ci.yml  (lint + escaneo de secretos + tests 3.10-3.12 + contrato + smoke)
+
+Nuevos módulos de la expansión (stdlib-only):
+  schemas.py    JSON Schema publicados de todo el contrato + validador propio
+  tools.py      registro de herramientas tipadas (permisos, rate limit, sandbox, auditoría)
+  cli.py        harness-candy run|suite|golden|report|validate|schemas|serve|...
+  server.py     API REST local + SSE (/runs, /suite, /golden, /schemas, /tools, /events)
+  suite.py      suites JSON de tareas ejecutadas como DAG
+  evalkit.py    golden sets con gate min_pass_rate (CI)
+  report.py     reportes JUnit XML / HTML / Markdown
+  storage.py    RunStore: JSON en disco o SQLite (stdlib)
+  cache.py      caché en disco de respuestas LLM (SHA-256, TTL, sin la API key)
+  failover.py   failover automático multi-backend (R11)
+  retry.py      backoff exponencial + jitter determinista
+  plugins.py    registro de plugins con hooks tolerantes a fallos
+  streaming.py  EventBus + formato SSE
+  alerts.py     alertas de presupuesto 50/80/100% (log/webhook, sin secretos)
+  factory.py    constructores por defecto (CLI, servidor, ejemplos)
 ```
 
 ## Estado del checklist y documentación
@@ -142,6 +166,9 @@ docs/             DISENO_COMBINADO.md (mapeo detallado al PDF), adr/ (ADR-001..0
 - `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODEOWNERS`, `.editorconfig`,
   `.gitattributes` — gobernanza y operación del repo; CI en `.github/workflows/ci.yml`
   (incluye **escaneo de secretos**: el repo no debe contener claves).
+- `docs/API.md` — referencia de la API pública, la CLI y los endpoints HTTP;
+  `docs/OPERACION.md` — runbooks (corridas, suites, golden en CI, alertas de
+  presupuesto, caché, failover, incidente de seguridad, rollback).
 
 ## Métricas que se miden (y las que no)
 

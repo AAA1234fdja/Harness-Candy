@@ -8,3 +8,10 @@ dist/
 venv/
 *.jsonl
 !docs/**/*.jsonl
+
+# artefactos de ejecucion (no van al repo)
+traces/
+runs/
+runs_*/
+.harness_cache/
+examples/suites/*.html

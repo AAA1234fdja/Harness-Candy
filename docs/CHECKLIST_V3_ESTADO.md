@@ -9,9 +9,38 @@ repositorio. Leyenda de estado:
 
 Prioridades del original: 🔴 bloqueante go-live · 🟡 recomendado · 🟢 mejora post-GA.
 
-Evidencia general: `python -m unittest discover -s tests` (104 tests OK) · CI en
+Evidencia general: `python -m unittest discover -s tests` (**264 tests OK**) · CI en
 `.github/workflows/ci.yml` · paper base: Xu et al., *Harness 2: Recursive Agent
 Harnessing for an Open World*, arXiv:2610.14224 (`docs/adr/README.md`).
+
+## Actualización tras la expansión del proyecto (2026-11-02)
+
+La expansión añadió ~14 módulos stdlib-only + CLI + servidor HTTP + 160 tests
+nuevos. Ítems que pasan de ⚠️ a ✅ en este repo:
+
+| Ítem (sección) | Antes | Ahora | Evidencia |
+|---|---|---|---|
+| §4.2 CLI (run/list/report/version/bench/serve) | ⚠️ | ✅ | `harness-candy ...` (`cli.py`, entry point en pyproject); `python -m harness_candy` |
+| §4.3 Backoff con jitter entre reintentos | ⚠️ | ✅ | `retry.py` (`backoff_delays` determinista por seed, `retry_call`, `RetryExhausted`) |
+| §4.5 Reportes JUnit XML + HTML + Markdown | ⚠️ | ✅ | `report.py` (`junit_xml`, `html_report`, `markdown_report`, `write_report`); `report --run ... --format html`; `/runs/{id}/report.html` |
+| §4.8 Registro de plugins con hooks | ⚠️ | ✅ | `plugins.py` (`PluginRegistry`, hooks on_run_start/node_start/node_end/run_end/alert/tool_call, carga por módulo) |
+| §5.3 defineTool tipada (JSON Schema, permisos, rate limit, timeout, errores tipados) | ⚠️ | ✅ | `tools.py` (`ToolSpec`+`ToolRegistry`, allowlist de permisos, `_TokenBucket`, sandbox para exec, auditoría `calls`) |
+| §5.6 Fallback multi-modelo automático | ⚠️ | ✅ | `failover.py` (`FailoverBackend`, `AllBackendsFailed`, timeout total, registro de intentos) — R11 mitigado en código |
+| §5.7 Observabilidad: eventos + SSE + métricas | ⚠️ | ✅ (base propia) | `streaming.py` (EventBus, SSE), `metrics.py`, TraceLog JSONL; OTel sigue 🏢 |
+| §5.9 Golden set + umbral en CI | ⚠️ | ✅ | `evalkit.py` (`run_golden`, `EvalReport.assert_gate`), `examples/golden/security_scan.json`, `harness-candy golden` (exit 2 si falla), `POST /golden` (200/422) |
+| §7.1 JSON Schema publicado de contratos | ⚠️ | ✅ | `schemas.py` (16 esquemas, `SCHEMA_VERSION`, validador propio stdlib); `GET /schemas`, `harness-candy schemas/validate` |
+| §7.2 Esquemas de resultado/traza/evaluación versionados | ⚠️ | ✅ | `run_result`, `trace_event`, `suite`, `golden_set` en `SCHEMAS`; `RunResult.to_dict` estable |
+| §8.3 Caché de respuestas del modelo | ⚠️ | ✅ | `cache.py` (`ResponseCache` en disco con TTL+evicción, `CachedBackend`, clave SHA-256 sin la API key); `harness-candy cache --stats/--clear` |
+| §12.1–12.3 Persistencia de corridas con backends | ⚠️ | ✅ | `storage.py` (`RunStore`, `JsonRunStore`, `SqliteRunStore` stdlib, `open_store("json://" \| "sqlite://")`); servidor y CLI guardan corridas |
+| §13.2 Alertas de presupuesto 50/80/100% + webhook | ⚠️ | ✅ | `alerts.py` (`BudgetMonitor`, `LogSink`, `WebhookSink` sin secretos, `MultiSink`, eventos en el bus) |
+| §14.1 Referencia de API publicada | ⚠️ | ✅ | `docs/API.md` (módulos, CLI, HTTP, esquemas) |
+| §11.3/§18.2 Runbooks | ⚠️ | ✅ | `docs/OPERACION.md` (10 runbooks: run, suite, golden, alertas, caché, failover, incidente de seguridad, regresión, rollback, limpieza) |
+| §6.2 API/visor de corridas (drill-down) | ⚠️ | ✅ | `server.py`: `/runs`, `/runs/{id}`, reportes por formato, `/events` SSE, `/suite`, `/golden`, `/schemas`, `/tools` |
+| §4.4 DSL de suites JSON + ejecución como DAG | ⚠️ | ✅ | `suite.py` + `examples/suites/demo.json` + `demo_suite.py` |
+
+Sigue pendiente técnico (⚠️): cassettes HTTP de proveedores reales; sharding/watch
+de suites; cobertura con herramienta en CI; contenedor/gVisor para aislamiento
+fuerte; actions de GitHub pineadas por SHA; OTel real; Dockerfile de servicio.
 
 ---
 
@@ -262,13 +291,16 @@ integrado (`examples/demo_e2e.py`, `demo_xkiro.py`), config (`pyproject.toml`).
 
 ## Resumen ejecutivo
 
-- **Cierre técnico en el repo**: 104 tests OK, CI verde (lint+secretos+tests 3.10–3.12+
-  contrato+smoke), 4 ejemplos ejecutables, bench, ADRs 001–005, CHANGELOG/CONTRIBUTING/
-  SECURITY/CODEOWNERS, docs completas con checklist v1 y v3 verificados.
-- **Pendientes técnicos concretos (⚠️)**: publicar JSON Schema de protocolos/config;
-  cassettes HTTP; CLI empaquetada; ruff/mypy opcionales; failover automático multi-modelo;
-  golden set por dominio; cobertura en CI; LoopAgent real en bridge ADK; contenedor/gVisor
-  para aislamiento fuerte; actions de CI pineadas por SHA.
+- **Cierre técnico en el repo**: **264 tests OK**, CI verde (lint+secretos+tests 3.10–3.12+
+  contrato+smoke), 7 ejemplos ejecutables, bench, ADRs 001–005, CLI empaquetada
+  (`harness-candy`), servidor HTTP local con API REST+SSE, esquemas JSON Schema
+  publicados, golden sets con gate, reportes JUnit/HTML/MD, caché LLM, failover
+  multi-modelo, alertas de presupuesto, plugins, suites JSON, stores JSON/SQLite,
+  CHANGELOG/CONTRIBUTING/SECURITY/CODEOWNERS, docs completas (v1 y v3 verificadas).
+- **Pendientes técnicos concretos (⚠️)**: cassettes HTTP de proveedores reales; sharding/watch
+  de suites; cobertura con herramienta en CI; contenedor/gVisor para aislamiento fuerte;
+  actions de CI pineadas por SHA; OTel real; Dockerfile de servicio; ruff/mypy opcionales;
+  LoopAgent real en bridge ADK.
 - **Organizacionales (🏢, no cerrables desde el repo)**: owners/SLAs/stakeholders, SLOs y
   dashboards, FinOps/chargeback, legal/cumplimiento, formación, canales, on-call, release a
   registros internos, entornos dev/staging/prod, marketplace, roadmap post-GA de la org.

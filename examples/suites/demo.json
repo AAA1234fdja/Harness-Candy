@@ -1,0 +1,35 @@
+{
+  "name": "seguridad-demo",
+  "seed": 0,
+  "max_concurrency": 4,
+  "budget": {"total": 10000, "beta": 0.5, "k": 2, "m": 3},
+  "tasks": [
+    {
+      "task_id": "scan",
+      "kind": "security_scan",
+      "instruction": "Escanear el repositorio en busca de secretos y errores de compilacion",
+      "inputs": {"root": "examples/golden/limpio"},
+      "deps": [],
+      "agent": "XEV",
+      "herramienta": "security_scan",
+      "criterios": [
+        {"id": "informe_json_valido", "peso": 3.0},
+        {"id": "compile_ok", "peso": 2.0},
+        {"id": "sin_secretos_criticos", "peso": 3.0},
+        {"id": "tiene_recomendaciones", "peso": 1.0},
+        {"id": "pasa_guardias_salida", "peso": 2.0}
+      ]
+    },
+    {
+      "task_id": "reporte",
+      "kind": "write_report",
+      "instruction": "Redactar el informe final a partir del escaneo",
+      "deps": ["scan"],
+      "agent": "XEV",
+      "criterios": [
+        {"id": "informe_json_valido", "peso": 3.0},
+        {"id": "pasa_guardias_salida", "peso": 2.0}
+      ]
+    }
+  ]
+}

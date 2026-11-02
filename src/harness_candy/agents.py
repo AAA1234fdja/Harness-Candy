@@ -138,7 +138,9 @@ class SecurityScanAgent(Agent):
 
     def run(self, task: Task, harness: Harness | None = None, seed: int = 0) -> Artifact:
         h = harness or self.default_harness
-        root = Path(task.inputs.get("root", "."))
+        # root absoluto: el sandbox ejecuta py_compile con cwd efimero, asi que
+        # una ruta relativa no existiria dentro del sandbox
+        root = Path(task.inputs.get("root", ".")).resolve()
         exts = {".py", ".js", ".ts", ".txt", ".md", ".env", ".json", ".yaml", ".yml", ".toml", ".cfg", ".ini"}
         files = sorted(p for p in root.rglob("*") if p.is_file() and p.suffix in exts and ".git" not in p.parts)
 

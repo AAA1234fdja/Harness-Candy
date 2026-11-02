@@ -19,6 +19,27 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) + SemVer.
 - Docs: `docs/CHECKLIST_ESTADO.md`, `docs/CHECKLIST_V3_ESTADO.md`, `docs/INDEPENDENCIA.md`, `docs/arquitectura.mmd`, ADRs en `docs/adr/`, `docs/ROADMAP.md`.
 - Repo base: `CONTRIBUTING.md`, `SECURITY.md`, `CODEOWNERS`, `.editorconfig`, `.gitattributes`, CI en `.github/workflows/ci.yml`.
 
+### Añadido (expansión del proyecto)
+- `schemas.py`: 16 esquemas JSON Schema publicados (`SCHEMAS`, `SCHEMA_VERSION="1.0.0"`) de todo el contrato (protocolos, task, harness, budget, pool_entry, trace_event, run_result, suite, golden_set, tool_spec) + validador propio stdlib (`validate_schema`, `validate_named`, `schema_json`).
+- `tools.py`: registro de herramientas tipadas (`ToolSpec`/`ToolRegistry`) con validación de argumentos contra su JSON Schema, allowlist de permisos (read/write/exec), rate limit (token bucket), timeout, ejecución en sandbox para comandos, auditoría de llamadas y errores tipados. Herramientas incluidas: `echo`, `list_files`, `read_file`, `py_compile`, `git_version` (root acotado).
+- `cli.py` + `__main__.py` + entry point `harness-candy`: subcomandos `version, schemas, validate, run, task, suite (run|list), golden, report, bench, cache, tools, serve`.
+- `server.py`: servidor HTTP local (stdlib) con API REST (`/health`, `/runs` GET/POST/DELETE, `/runs/{id}`, `/runs/{id}/report.{xml,html,md,json}`, `/suite`, `/golden` con gate 200/422, `/schemas`, `/tools`) y stream SSE `/events`. Cuerpo ≤ 1 MB, sin logueo de cuerpos, acepta cualquier Host (preview local).
+- `suite.py`: suites JSON de tareas (esquema `suite`) ejecutadas como DAG con Harness²+WEV por nodo (`run_suite` → `SuiteResult`); `examples/suites/demo.json` + `examples/demo_suite.py`.
+- `evalkit.py`: golden sets (`load_golden`, `run_golden` → `EvalReport` con `pass_rate`, `assert_gate()` para CI); `examples/golden/security_scan.json` + `examples/demo_golden.py`.
+- `report.py`: reportes JUnit XML, HTML autocontenido y Markdown de cualquier corrida (`write_report` por extensión).
+- `storage.py`: `RunStore` con `JsonRunStore` y `SqliteRunStore` (sqlite3 stdlib) + `open_store("json://dir" | "sqlite://x.db")`.
+- `cache.py`: caché en disco de respuestas LLM (`ResponseCache` con TTL y evicción LRU; clave SHA-256 de {model, system, prompt, seed}, nunca la API key) y `CachedBackend`.
+- `failover.py`: `FailoverBackend` (lista ordenada de backends, reintento ante `BackendError`, timeout total, registro de intentos en `attempts`) — mitiga R11 en código.
+- `retry.py`: `retry_call`/`retryable` con backoff exponencial + jitter **determinista por seed** (`backoff_delays`), `RetryExhausted`.
+- `plugins.py`: `PluginRegistry` con hooks (`on_run_start/node_start/node_end/run_end/alert/tool_call`), carga por módulo (`load_module`), tolerancia a fallos (un plugin roto se deshabilita y queda en `errors`), `LoggingPlugin`, `CompositePlugin`.
+- `streaming.py`: `EventBus` pub/sub con historial acotado y tolerancia a fallos, `sse()` (Server-Sent Events), `SseBroadcaster`, `EventCollector` para tests.
+- `alerts.py`: `BudgetMonitor` con umbrales 50/80/100% (una vez cada uno) sobre `Budget`, sumideros `LogSink`/`WebhookSink` (POST JSON, nunca envía claves)/`MultiSink`, y emisión de alertas al bus de eventos.
+- `factory.py`: constructores por defecto compartidos por CLI, servidor y ejemplos (`build_runner`, `make_pool`, `make_backend`).
+- Ejemplos nuevos: `demo_suite.py`, `demo_golden.py`, `demo_cli.py`, `demo_server.py`, `suites/demo.json`, `golden/security_scan.json`, `golden/limpio/` (repo demo sin secretos).
+- Docs nuevas: `docs/API.md` (referencia de API/CLI/HTTP/esquemas), `docs/OPERACION.md` (10 runbooks); `docs/CHECKLIST_V3_ESTADO.md` actualizado con los ítems que pasan a ✅.
+- Fix: `SecurityScanAgent` resuelve `inputs.root` a ruta absoluta (el sandbox usa cwd efímero).
+- Tests: 160 nuevos (264 en total) — `test_schemas, test_tools, test_cache, test_failover, test_retry, test_plugins, test_streaming, test_alerts, test_report, test_storage, test_suite, test_evalkit, test_cli, test_server`.
+
 ## [0.1.0] - 2026-11-02
 
 ### Añadido

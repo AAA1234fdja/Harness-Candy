@@ -3,6 +3,7 @@
 Ver docs/DISENO_COMBINADO.md para el mapeo seccion-del-PDF -> modulo.
 """
 from . import protocols, quality, harness, memory, pool, security, sandbox, dag, agents, components, runner, adk_bridge, ablation, backends, judge, metrics
+from . import schemas, retry, streaming, plugins, cache, failover, tools, alerts, report, storage, suite, evalkit, factory
 from .backends import BackendError, OpenAICompatibleBackend
 from .judge import LLMJudge, calibrate, swap_test
 from .metrics import MetricsCollector
@@ -23,6 +24,19 @@ from .runner import CoworkRunner, RunResult, run_task
 from .adk_bridge import build_adk_flow, build_flow_spec
 from .ablation import AblationReport, k_curve, run_ablation
 from .quality import mann_whitney_adopt
+from .schemas import SCHEMAS, SCHEMA_VERSION, SchemaError, schema_json, schema_names, validate_named, validate_schema
+from .retry import RetryExhausted, backoff_delays, retry_call, retryable
+from .streaming import EventBus, EventCollector, SseBroadcaster, sse
+from .plugins import CompositePlugin, LoggingPlugin, PluginRegistry
+from .cache import CachedBackend, ResponseCache, cache_key
+from .failover import AllBackendsFailed, FailoverBackend
+from .tools import ToolRegistry, ToolSpec, default_registry
+from .alerts import Alert, BudgetMonitor, LogSink, MultiSink, WebhookSink, quality_alert
+from .report import html_report, junit_xml, markdown_report, write_report
+from .storage import JsonRunStore, SqliteRunStore, open_store
+from .suite import Suite, SuiteResult, load_suite, run_suite
+from .evalkit import CaseResult, EvalReport, GoldenCase, GoldenSet, load_golden, run_golden
+from .factory import build_runner, make_backend, make_pool
 
 __version__ = "0.1.0"
 
@@ -45,5 +59,20 @@ __all__ = [
     "CoworkRunner", "RunResult", "run_task",
     "build_adk_flow", "build_flow_spec",
     "AblationReport", "run_ablation",
+    "schemas", "retry", "streaming", "plugins", "cache", "failover", "tools", "alerts",
+    "report", "storage", "suite", "evalkit", "factory",
+    "SCHEMAS", "SCHEMA_VERSION", "SchemaError", "schema_json", "schema_names", "validate_named", "validate_schema",
+    "RetryExhausted", "backoff_delays", "retry_call", "retryable",
+    "EventBus", "EventCollector", "SseBroadcaster", "sse",
+    "CompositePlugin", "LoggingPlugin", "PluginRegistry",
+    "CachedBackend", "ResponseCache", "cache_key",
+    "AllBackendsFailed", "FailoverBackend",
+    "ToolRegistry", "ToolSpec", "default_registry",
+    "Alert", "BudgetMonitor", "LogSink", "MultiSink", "WebhookSink", "quality_alert",
+    "html_report", "junit_xml", "markdown_report", "write_report",
+    "JsonRunStore", "SqliteRunStore", "open_store",
+    "Suite", "SuiteResult", "load_suite", "run_suite",
+    "CaseResult", "EvalReport", "GoldenCase", "GoldenSet", "load_golden", "run_golden",
+    "build_runner", "make_backend", "make_pool",
     "__version__",
 ]
