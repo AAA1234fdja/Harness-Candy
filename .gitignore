@@ -15,3 +15,5 @@ runs/
 runs_*/
 .harness_cache/
 examples/suites/*.html
+*.db
+*.sqlite*
