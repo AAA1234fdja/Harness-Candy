@@ -104,7 +104,59 @@ harness-candy codegen /tmp/mi-proy --name mi-proy
 
 En Python: `harness_candy.RAGPipeline`, `Workflow`/`run_workflow`, `Campaign`/`run_campaign`, `run_eval_suite`, `Planner`, `codeedit`/`diffengine`/`textdiff`, `stats`, `crypto` (firma de corridas), `graph`, `viz`, `notify`, `templates`, `config`, `summarize`, `watch`, `llm` (`ChatSession`, `structured_output`). Ver `docs/API.md` §"Cuarta ola".
 
-## 8. Dónde seguir
+## 8. Quinta ola: Harness^2 avanzado, Vertex/Gemini, runners y scripts (5 min)
+
+```python
+from harness_candy import (LLMProposer, run_recursion, HarnessTree, seleccionar_adoptado,
+                           construir_contexto, crear_runmark, VertexBackend, grid_sweep)
+
+# 1) Proponer candidatos con LLM (fail-closed a reglas si el LLM falla)
+proposer = LLMProposer(mi_backend)          # mi_backend.complete(prompt, system=, model=, seed=)
+candidatos = proposer(h0, "security_scan", k=2, task=tarea, evidencia={"q_ref": 0.6})
+
+# 2) Recursion task-level: paralela o secuencial con contexto acumulado
+res = run_recursion(["paso1", "paso2"], ejecutar, modo="parallel")   # o "sequential"
+
+# 3) Árbol de candidatos + selección estadística del adoptado
+tree = HarnessTree("h0", 0.5); tree.add_candidate("cand-1", 0.8)
+sel = seleccionar_adoptado([0.5, 0.5, 0.5], [CandidateScore("cand-1", [0.9, 0.95, 0.85])])
+
+# 4) Contexto del executor y marca de corrida (reproducibilidad, sin secretos)
+bundle = construir_contexto(tarea, fragmentos=rag.query("guía de seguridad"), max_tokens=2000)
+marca = crear_runmark("run-1", seed=0, params={"k": 2})   # env solo como NOMBRES
+
+# 5) Gemini en Vertex AI con ADC (GOOGLE_CLOUD_PROJECT/VERTEX_LOCATION/VERTEX_MODEL en env)
+vertex = VertexBackend.from_env()            # token vía metadata GCE / gcloud / archivo ADC
+texto = vertex.complete("resume este informe")
+```
+
+Runners de terceros (en `third_party/`, stdlib-only, sin depender del paquete):
+
+```python
+import sys; sys.path.insert(0, "third_party")
+from jb_runner import Job, JobRunner, JobStore        # cola con prioridad + resume
+store = JobStore("/tmp/jobs.json")
+JobRunner(store, mi_evaluador).run([Job("a", prioridad=10), Job("b")])
+
+from lab_runner import Experimento                   # grid de hyperparámetros en paralelo local
+res = Experimento("sweep", grid={"k": [1, 2, 4]}, ejecutar=mi_eval).correr()
+print(res.mejor_params, res.ic95, res.reporte_md())
+
+from wb_runner import WorkBuddy                      # Docker + Harbor (claves solo en env)
+wb = WorkBuddy.from_env("registry.empresa.co", proyecto="hc", dry_run=True)
+res = wb.run("mi-app", dockerfile_dir=".", comando=["python", "-m", "app"])
+```
+
+Scripts operativos (ejecutables, desde la raíz del repo):
+
+```bash
+scripts/harness2-setup                 # prepara store/traces e informa el entorno (sin valores de env)
+scripts/harness2-check                 # compileall + escaneo de secretos + tests rapidos (--full = suite completa)
+scripts/harness2-judge                 # golden con gate; exit 2 si pass_rate < umbral
+scripts/harness2-report --run-id judge-security-scan-basico-2 --store json://runs_h2 --out reporte.html
+```
+
+## 9. Dónde seguir
 
 - `docs/API.md` — referencia completa (módulos, CLI, HTTP, esquemas).
 - `docs/OPERACION.md` — runbooks (incidentes, rollback, caché, FinOps...).

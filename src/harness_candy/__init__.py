@@ -7,6 +7,7 @@ from . import schemas, retry, streaming, plugins, cache, failover, tools, alerts
 from . import auth, tenancy, agents_catalog, guards, scheduler, datasets, metrics_export, web, review, latencia
 from . import templates, config, summarize, watch, llm, rag, planner, codeedit, diffengine, workflow, orchestrator, codegen, evalsuite
 from . import stats, graph, textdiff, crypto, i18n, viz, notify
+from . import proposer, schedule, recursion, tree, selection, context, runmark, vertex
 from .backends import BackendError, OpenAICompatibleBackend
 from .judge import LLMJudge, calibrate, swap_test
 from .metrics import MetricsCollector
@@ -50,6 +51,14 @@ from .metrics_export import OtlpExporter, otlp_spans, prometheus_text
 from .web import dashboard_html
 from .review import ReviewAgent, DEFAULT_ALLOWED_PREFIXES
 from .latencia import bench_latencia, comparar_latencias, percentiles
+from .proposer import CANDIDATO_SCHEMA, LLMProposer, proposer_desde_config
+from .schedule import ScheduleItem, ScheduleResult, ScheduleRunner, SweepPoint, SweepResult, grid_sweep, particionar, shard_de, sweep_con_early_stop
+from .recursion import PARALLEL, SEQUENTIAL, RecursionResult, SubResult, reflection_post_adopcion, run_recursion
+from .tree import HarnessTree, TreeNode
+from .selection import CandidateScore, SelectionResult, seleccionar_adoptado
+from .context import ContextBundle, Fragmento, construir_contexto
+from .runmark import ENV_RELEVANTES, RunMark, crear_runmark, fingerprint_env, verificar_reproducibilidad
+from .vertex import ADCError, VertexBackend, obtener_token_adc, token_desde_adc_file, token_desde_gcloud, token_desde_metadata
 from .templates import TemplateError, compile_template, render_file, render_string
 from .config import DEFAULTS as CONFIG_DEFAULTS, ENV_PREFIX, Config, ConfigWatcher, default_config, diff_configs, interpolar, load_config
 from .summarize import Summary, detectar_duplicados, keywords, resumen_por_parrafos, similitud_jaccard, summarize, summarize_longitud, tfidf_lite
@@ -148,5 +157,14 @@ __all__ = [
     "clave_desde_env", "derive_key",
     "ConversationLogger", "fit_context", "resumen_historial",
     "curva_pass_k", "markdown_eval_report", "evaluate_retrieval",
+    "proposer", "schedule", "recursion", "tree", "selection", "context", "runmark", "vertex",
+    "CANDIDATO_SCHEMA", "LLMProposer", "proposer_desde_config",
+    "ScheduleItem", "ScheduleResult", "ScheduleRunner", "SweepPoint", "SweepResult", "grid_sweep", "particionar", "shard_de", "sweep_con_early_stop",
+    "PARALLEL", "SEQUENTIAL", "RecursionResult", "SubResult", "reflection_post_adopcion", "run_recursion",
+    "HarnessTree", "TreeNode",
+    "CandidateScore", "SelectionResult", "seleccionar_adoptado",
+    "ContextBundle", "Fragmento", "construir_contexto",
+    "ENV_RELEVANTES", "RunMark", "crear_runmark", "fingerprint_env", "verificar_reproducibilidad",
+    "ADCError", "VertexBackend", "obtener_token_adc", "token_desde_adc_file", "token_desde_gcloud", "token_desde_metadata",
     "__version__",
 ]

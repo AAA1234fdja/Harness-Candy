@@ -4,6 +4,22 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) + SemVer.
 
 ## [Unreleased]
 
+### Añadido (quinta ola: Harness^2 avanzado, Vertex/Gemini ADC, runners de terceros y scripts harness2-*; suite 579 → 669 tests OK)
+- `proposer.py`: `LLMProposer` — refinamiento de prompts del harness con LLM vía `structured_output` (esquema `CANDIDATO_SCHEMA`), conserva lo que funcionó y cae fail-closed a `RuleBasedProposer`; `proposer_desde_config`.
+- `schedule.py`: partición LPT (`particionar`, `shard_de`), sweep de hyperparámetros (`grid_sweep`, `sweep_con_early_stop` con ventana de no-mejora) y `ScheduleRunner` con checkpoint JSON y resume (no re-ejecuta lo terminado).
+- `recursion.py`: `run_recursion` con modos `parallel` (ThreadPoolExecutor, semillas por sub-objetivo, sin estado compartido) y `sequential` (contexto acumulado); `reflection_post_adopcion` guarda la reflexión del LLM en `KnowledgeMemory` (fail-closed determinista si el LLM falla).
+- `tree.py`: `HarnessTree` — árbol de candidatos con `add_candidate`, `best(k)`, `path_to`, `podar(umbral)`, `ascii()`, persistencia JSON (`save`/`load`).
+- `selection.py`: `seleccionar_adoptado` — elige el adoptado con Mann-Whitney one-sided + `compose_delta` + IC95 bootstrap; si nadie gana, vuelve a la referencia.
+- `context.py`: `construir_contexto` → `ContextBundle` (tarea + fragmentos RAG ordenados por score y recortados por presupuesto de tokens + historial) con `to_prompt`/`to_dict`.
+- `runmark.py`: `RunMark`/`crear_runmark` — commit git, sha256 de archivos clave, fingerprint de env SOLO con nombres (`fingerprint_env`), `verificar_reproducibilidad` entre dos marcas; nunca guarda valores de secretos.
+- `vertex.py`: `VertexBackend` (implementa `LLMBackend`) contra la API generativa de Vertex AI (Gemini) vía REST `:generateContent`, con token ADC (`obtener_token_adc`: metadata GCE → `gcloud auth application-default print-access-token` → archivo ADC con refresh-token flow). El token solo vive en memoria/header `Authorization`; `from_env` usa `GOOGLE_CLOUD_PROJECT`/`VERTEX_LOCATION`/`VERTEX_MODEL`. Transport inyectable para tests sin red.
+- `third_party/jb_runner/`: cola de jobs con prioridad (heap, FIFO en empates), `JobStore` JSON atómico con estados e intentos, `JobRunner` con reintentos y resume.
+- `third_party/lab_runner/`: `Experimento` con grid de params (`itertools.product`), ejecución paralela local (ThreadPoolExecutor), mejor resultado + media/IC95 bootstrap propios, reporte Markdown/JSON.
+- `third_party/wb_runner/`: `DockerRunner` (CLI docker con `dry_run` y `ejecutar` inyectable), `HarborClient` (credenciales SOLO de `HARBOR_USERNAME`/`HARBOR_PASSWORD`, login con `--password-stdin`, API REST v2 con transport inyectable) y `WorkBuddy` (pipeline build → login → tag → push → run → artefactos).
+- `scripts/harness2-setup|check|judge|report` (ejecutables): setup de entorno (sin imprimir valores de env), check (compileall + escaneo de secretos + tests rápidos, `--full` para la suite completa), judge (golden con gate `min-pass-rate`, exit 2 si falla, guarda el reporte en el store) y report (HTML/MD desde archivo JSON o `run_id` del store).
+- Tests: 90 nuevos (669 en total) — `test_proposer_ola5`, `test_schedule_ola5`, `test_recursion_ola5`, `test_tree_selection_ola5`, `test_context_runmark_ola5`, `test_vertex_ola5`, `test_third_party`, `test_scripts`.
+- Docs actualizadas: `API.md` (sección quinta ola), README, `CHECKLIST_V3_ESTADO.md`, TUTORIAL.
+
 ### Añadido (cuarta ola: +~4.600 líneas en `src/`, 25 módulos nuevos, stdlib-only; suite 338 → 579 tests OK)
 - `templates.py`: motor de plantillas mini-Jinja compilado a Python (filtros, for/if/set, comentarios, herencia extends/block, include con anti-ciclo y anti-traversal).
 - `config.py`: esquema `config` publicado; precedencia archivo < env `HARNESS_*` < kwargs; interpolación `${VAR}`; `ConfigWatcher` (hot-reload por mtime); `to_safe_dict` enmascara secretos; `diff_configs`.

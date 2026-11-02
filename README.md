@@ -27,7 +27,7 @@ Solo usa la librería estándar de Python (≥ 3.10). Sin dependencias obligator
 
 ```bash
 pip install -e .          # o simplemente añade src/ al PYTHONPATH
-python -m unittest discover -s tests -v   # 579 tests
+python -m unittest discover -s tests -v   # 669 tests
 python examples/demo_e2e.py               # flujo completo ISA→…→ELY
 python examples/demo_ablation.py          # experimento de ablación A/B/C/D
 python examples/demo_suite.py             # suite JSON de tareas como DAG
@@ -138,7 +138,18 @@ src/harness_candy/
   i18n.py         mensajes ES/EN con detección de idioma
   viz.py          sparklines, barras, histogramas, heatmaps (ASCII/HTML)
   notify.py       notificaciones multi-sink (callback/JSONL/webhook) tolerante a fallos
-tests/            579 tests (unittest, sin dependencias)
+  proposer.py     LLMProposer: refinamiento de prompts del harness con LLM (structured output, fail-closed a reglas)
+  schedule.py     particiones LPT, shards, grid sweep con early-stop, ScheduleRunner con checkpoint JSON y resume
+  recursion.py    recursion task-level parallel/sequential + reflection post-adopcion a KnowledgeMemory
+  tree.py         HarnessTree: arbol de candidatos (best/path/podar/ascii/persistencia)
+  selection.py    seleccionar_adoptado: Mann-Whitney one-sided + delta compuesto + IC95 bootstrap
+  context.py      construir_contexto: ContextBundle del executor con recorte de fragmentos por presupuesto de tokens
+  runmark.py      RunMark: commit git, sha256 de archivos clave, fingerprint de env (solo nombres) y verificacion de reproducibilidad
+  vertex.py       VertexBackend (Gemini via REST) con ADC: metadata GCE -> gcloud -> archivo ADC; sin claves en archivos
+third_party/      jb_runner (cola de jobs con prioridad + store/resume), lab_runner (experimentos con grid y estadistica),
+                  wb_runner (WorkBuddy: DockerRunner dry-run + HarborClient con credenciales solo de env + pipeline build->push->run->artefactos)
+scripts/          harness2-setup | harness2-check | harness2-judge (gate, exit 2 si falla) | harness2-report (HTML/MD)
+tests/            669 tests (unittest, sin dependencias)
 examples/         demo_e2e, demo_ablation, demo_xkiro, demo_suite, demo_golden,
                   demo_agents, demo_cli, demo_server, bench_escalabilidad,
                   suites/, golden/, agents.json, workflows/demo.json, campaigns/demo.json

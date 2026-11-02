@@ -82,6 +82,24 @@ El contrato de datos está publicado como **JSON Schema** (módulo `schemas`,
 | `notify` | `Notifier([sinks])`, `CallbackSink`, `JsonlSink`, `WebhookSink`, `notificar_evento_watch` | notificaciones de eventos (un sink caído no tumba a los demás) |
 
 
+## Quinta ola: Harness^2 avanzado, Vertex/Gemini (ADC), third_party y scripts
+
+| Módulo / paquete | API clave | Para qué sirve |
+|---|---|---|
+| `proposer` | `LLMProposer(backend)`, `proposer_desde_config(backend)`, `CANDIDATO_SCHEMA` | Propone k variantes del harness con LLM (JSON validado); conserva el system_prompt base; fail-closed a `RuleBasedProposer` |
+| `schedule` | `particionar(items, n, clave_tamano=...)`, `shard_de(i, n, k)`, `grid_sweep(espacio)`, `sweep_con_early_stop(evaluar, espacio, min_puntos=, ventana=)`, `ScheduleRunner(ejecutar, checkpoint=...)` | Particiones balanceadas (LPT), sweep de hyperparámetros con early-stop, ejecución por shards con checkpoint JSON y resume |
+| `recursion` | `run_recursion(objetivos, ejecutar, modo=PARALLEL\|SEQUENTIAL, ...)`, `reflection_post_adopcion(backend, run_id=, evidence=, harness_adoptado=, memory=)` | Recursion task-level (paralela sin estado compartido / secuencial con contexto acumulado) + reflection post-adopción a memoria |
+| `tree` | `HarnessTree(root_label, score)`, `add_candidate`, `best(k)`, `path_to`, `podar(umbral)`, `ascii()`, `save/load` | Árbol de candidatos de harness con persistencia JSON |
+| `selection` | `seleccionar_adoptado(ref_scores, [CandidateScore(label, scores)], alpha=, n_boot=)` → `SelectionResult` | Selección estadística del adoptado: Mann-Whitney one-sided + delta compuesto + IC95 bootstrap; empate → referencia |
+| `context` | `construir_contexto(task, fragmentos=, historial=, max_tokens=)` → `ContextBundle.to_prompt()/to_dict()` | Contexto del executor: fragmentos RAG ordenados por score y recortados por presupuesto de tokens |
+| `runmark` | `crear_runmark(run_id, seed, params=, root=, environ=)`, `fingerprint_env()`, `verificar_reproducibilidad(a, b)`, `RunMark.save/load` | Marca de corrida: commit git, hashes sha256 de archivos clave, env SOLO como nombres; verificación de reproducibilidad |
+| `vertex` | `VertexBackend(project, ...)` (implementa `LLMBackend`), `VertexBackend.from_env()`, `obtener_token_adc()`, `token_desde_metadata/gcloud/adc_file`, `ADCError` | Gemini en Vertex AI vía REST con ADC (metadata GCE → gcloud → archivo ADC). Sin claves en archivos; token solo en memoria/header |
+| `third_party/jb_runner` | `Job`, `JobQueue` (prioridad), `JobStore(path)`, `JobRunner(store, ejecutar).run(jobs)` | Cola de jobs con prioridad, reintentos, store JSON atómico y resume |
+| `third_party/lab_runner` | `Experimento(nombre, grid=, ejecutar=, repeticiones=, max_workers=)`, `media`, `ic95_bootstrap`, `desviacion` | Experimentos con grid de params en paralelo local; mejor config + IC95; reporte MD/JSON |
+| `third_party/wb_runner` | `DockerRunner(dry_run=)`, `HarborClient(url, proyecto=)`, `WorkBuddy.from_env(registry).run(...)` | WorkBuddy: build→push→run→artefactos; credenciales Harbor SOLO de `HARBOR_USERNAME`/`HARBOR_PASSWORD` vía `--password-stdin` |
+| `scripts/harness2-*` | `harness2-setup`, `harness2-check [--full]`, `harness2-judge [golden] [--min-pass-rate X]` (exit 2 si falla el gate), `harness2-report --run|--run-id --out reporte.html\|.md` | Utilidades operativas ejecutables (shebang python3, stdlib-only) |
+
+
 ## CLI
 
 ```
