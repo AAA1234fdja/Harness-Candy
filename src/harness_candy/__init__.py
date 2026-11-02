@@ -23,7 +23,8 @@ __version__ = "0.1.0"
 
 __all__ = [
     "protocols", "quality", "harness", "memory", "pool", "security", "sandbox",
-    "dag", "agents", "components", "runner", "adk_bridge", "ablation",
+    "dag", "agents", "components", "runner", "adk_bridge", "ablation", "backends",
+    "BackendError", "OpenAICompatibleBackend",
     "Envelope", "Hallazgo", "ProtocolError", "ProtocolMessage", "WevMessage", "XevMessage", "YevMessage", "ZevMessage", "validate",
     "Criterion", "RegressionGuard", "TraceLog", "compose_delta", "score_q", "should_adopt",
     "Budget", "Harness", "Harness2Adapter", "HarnessStore", "RuleBasedProposer", "harness2_adapter",

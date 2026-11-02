@@ -56,6 +56,22 @@ al agente (los agentes son *model-agnostic*; el Nivel 3 elige modelo y clave
 por rol). Para construir los agentes de flujo reales de ADK desde el DAG usa
 `harness_candy.adk_bridge.build_adk_flow(dag, agent_factory)` (extra `adk`).
 
+### Probar con un modelo real de xkiro (API OpenAI-compatible)
+
+Ya viene listo un backend estándar (`backends.OpenAICompatibleBackend`, solo
+stdlib, sin guardar claves en el repo):
+
+```bash
+export XKIRO_API_KEY="sk-..."                    # tu clave (variable de entorno, NUNCA en el codigo)
+export XKIRO_BASE_URL="https://api.xkiro.ai/v1"  # opcional, ese es el default
+export XKIRO_MODEL="nombre-del-modelo"           # opcional
+python examples/demo_xkiro.py                    # ping al modelo + run_task con adaptador Harness^2
+```
+
+> Seguridad: si una clave se comparte por chat queda expuesta — rómpela/rotala
+> en el panel del proveedor. El paquete solo lee `XKIRO_API_KEY` del entorno;
+> `git grep` no debe encontrar ninguna clave.
+
 ## Qué se implementó del documento (mapeo)
 
 | Sección del PDF | Módulo |
