@@ -1,0 +1,15 @@
+{
+  "name": "swe-mini",
+  "min_pass_rate": 0.5,
+  "metadata": {"fuente": "casos propios estilo SWE-bench: el modelo escribe codigo y se ejecutan tests en sandbox"},
+  "cases": [
+    {"id": "suma", "tipo": "codigo", "dominio": "codigo", "prompt": "Escribe una funcion Python f(a, b) que devuelva a + b.",
+     "test_code": "assert f(2, 3) == 5\nassert f(-1, 1) == 0\nprint('ok')", "expected_stdout": "ok"},
+    {"id": "maximo", "tipo": "codigo", "dominio": "codigo", "prompt": "Escribe una funcion Python maximo(lista) que devuelva el mayor elemento.",
+     "test_code": "assert maximo([1, 9, 3]) == 9\nassert maximo([-5, -2]) == -2\nprint('ok')", "expected_stdout": "ok"},
+    {"id": "es_par", "tipo": "codigo", "dominio": "codigo", "prompt": "Escribe una funcion Python es_par(n) que devuelva True si n es par.",
+     "test_code": "assert es_par(4) is True\nassert es_par(7) is False\nprint('ok')", "expected_stdout": "ok"},
+    {"id": "invertir", "tipo": "codigo", "dominio": "codigo", "prompt": "Escribe una funcion Python invertir(s) que devuelva el texto al reves.",
+     "test_code": "assert invertir('hola') == 'aloh'\nprint('ok')", "expected_stdout": "ok"}
+  ]
+}

@@ -9,7 +9,7 @@ repositorio. Leyenda de estado:
 
 Prioridades del original: 🔴 bloqueante go-live · 🟡 recomendado · 🟢 mejora post-GA.
 
-Evidencia general: `python -m unittest discover -s tests` (**669 tests OK**) · CI en
+Evidencia general: `python -m unittest discover -s tests` (**747 tests OK**) · CI en
 `.github/workflows/ci.yml` · paper base: Xu et al., *Harness 2: Recursive Agent
 Harnessing for an Open World*, arXiv:2610.14224 (`docs/adr/README.md`).
 
@@ -303,7 +303,7 @@ integrado (`examples/demo_e2e.py`, `demo_xkiro.py`), config (`pyproject.toml`).
 
 ## Resumen ejecutivo
 
-- **Cierre técnico en el repo**: **669 tests OK**, CI verde (lint+secretos+tests 3.10–3.12+
+- **Cierre técnico en el repo**: **747 tests OK**, CI verde (lint+secretos+tests 3.10–3.12+
   contrato+smoke), 7 ejemplos ejecutables, bench, ADRs 001–005, CLI empaquetada
   (`harness-candy`), servidor HTTP local con API REST+SSE, esquemas JSON Schema
   publicados, golden sets con gate, reportes JUnit/HTML/MD, caché LLM, failover

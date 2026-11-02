@@ -156,7 +156,44 @@ scripts/harness2-judge                 # golden con gate; exit 2 si pass_rate < 
 scripts/harness2-report --run-id judge-security-scan-basico-2 --store json://runs_h2 --out reporte.html
 ```
 
-## 9. Dónde seguir
+## 9. Sexta ola: benchmarks, safety, juez calibrado, QA y multi-backend (5 min)
+
+```python
+from harness_candy import (run_benchmark, load_benchmark, benchmark_card, SafetySuite,
+                           CalibratedJudge, calibrar_juez, TorneoElo, run_mutation, fuzz_funcion,
+                           evidence_pack, verificar_pack, evaluar_alertas, AnthropicBackend,
+                           OllamaBackend, SelectorModelos, failover_desde_env)
+
+# 1) Benchmark local estilo MMLU/SWE (suites en benchmarks/)
+suite = load_benchmark("benchmarks/mini_mmlu.json")
+rep = run_benchmark(suite, mi_backend.complete, modelo="mi-modelo", seeds=(0, 1), k=2)
+card = benchmark_card(suite, rep)          # BenchmarkCard JSON interoperable
+
+# 2) Safety continua: JSR, refusal, toxicidad e incidentes
+safety = SafetySuite()                       # corpus red-team embebido
+reporte = safety.run(mi_pipeline)            # gate propio + incidentes con TTD
+
+# 3) Juez calibrado + leaderboard Elo
+juez = CalibratedJudge(mi_backend)
+cal = calibrar_juez(juez, muestras_con_q_humano)   # MAE, sesgo, Pearson, por dominio
+torneo = TorneoElo(); torneo.partida("modeloA", "modeloB", "A")
+
+# 4) QA del codigo generado: mutation + fuzz
+rep_mut = run_mutation(src, "mi_funcion", mis_tests)          # mutation score
+rep_fuzz = fuzz_funcion(mi_fn, generador, propiedad, n=200, seed=0, guardar_en="corpus.json")
+
+# 5) Evidence pack firmado + alertas + rollback
+pack = evidence_pack(run_dict, key=None)     # firma con HARNESS_SIGNING_KEY (env)
+ok = verificar_pack(pack)
+alertas = evaluar_alertas({"toxicity_rate": [...], "q_media": [...]})
+
+# 6) Multi-backend real: anthropic / vertex / ollama local con failover
+fo = failover_desde_env()                    # detecta proveedores por env
+texto = fo.complete("hola")                  # reintenta en orden hasta responder
+sel = SelectorModelos("calidad"); sel.registrar("flash", costo_per_1k=0.0001, p95_s=0.2, q_media=0.7)
+```
+
+## 10. Dónde seguir
 
 - `docs/API.md` — referencia completa (módulos, CLI, HTTP, esquemas).
 - `docs/OPERACION.md` — runbooks (incidentes, rollback, caché, FinOps...).

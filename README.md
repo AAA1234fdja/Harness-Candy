@@ -27,7 +27,7 @@ Solo usa la librería estándar de Python (≥ 3.10). Sin dependencias obligator
 
 ```bash
 pip install -e .          # o simplemente añade src/ al PYTHONPATH
-python -m unittest discover -s tests -v   # 669 tests
+python -m unittest discover -s tests -v   # 747 tests
 python examples/demo_e2e.py               # flujo completo ISA→…→ELY
 python examples/demo_ablation.py          # experimento de ablación A/B/C/D
 python examples/demo_suite.py             # suite JSON de tareas como DAG
@@ -149,7 +149,14 @@ src/harness_candy/
 third_party/      jb_runner (cola de jobs con prioridad + store/resume), lab_runner (experimentos con grid y estadistica),
                   wb_runner (WorkBuddy: DockerRunner dry-run + HarborClient con credenciales solo de env + pipeline build->push->run->artefactos)
 scripts/          harness2-setup | harness2-check | harness2-judge (gate, exit 2 si falla) | harness2-report (HTML/MD)
-tests/            669 tests (unittest, sin dependencias)
+  benchmarks.py   suites multi-benchmark locales (mcq/codigo/abierto) con pass@k, gate, BenchmarkCard/EvaluationCard/OLMES
+  safety.py       safety harness continuo: jailbreak/toxicity/refusal (ES/EN), JSR, incidentes con TTD, red-team programatico
+  judge_calib.py  juez calibrado: single/pairwise/reference-guided, MAE por dominio, consenso multi-juez, Elo
+  qatest.py       mutation testing (AST y dirigido al diff), fuzz/PBT con corpus de regresion, metricas de mantenibilidad
+  evidence.py     evidence packs firmados (HMAC, clave solo en env), OTLP end-to-end, alertas avanzadas, rollback automatico
+  backends_multi.py  Anthropic + Ollama (local) + Vertex, selector costo/latencia/calidad, failover por modelo, TokenBudget
+benchmarks/       mini_mmlu.json (10 casos MCQ estilo MMLU) y swe_mini.json (4 casos de codigo estilo SWE-bench)
+tests/            747 tests (unittest, sin dependencias)
 examples/         demo_e2e, demo_ablation, demo_xkiro, demo_suite, demo_golden,
                   demo_agents, demo_cli, demo_server, bench_escalabilidad,
                   suites/, golden/, agents.json, workflows/demo.json, campaigns/demo.json

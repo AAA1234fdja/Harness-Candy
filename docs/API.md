@@ -100,6 +100,18 @@ El contrato de datos está publicado como **JSON Schema** (módulo `schemas`,
 | `scripts/harness2-*` | `harness2-setup`, `harness2-check [--full]`, `harness2-judge [golden] [--min-pass-rate X]` (exit 2 si falla el gate), `harness2-report --run|--run-id --out reporte.html\|.md` | Utilidades operativas ejecutables (shebang python3, stdlib-only) |
 
 
+## Sexta ola: eval multi-benchmark, safety continua, juez calibrado, QA de código, evidence packs, multi-backend
+
+| Módulo | API clave | Para qué sirve |
+|---|---|---|
+| `benchmarks` | `BenchmarkSuite`/`BenchmarkCase` (mcq/codigo/abierto), `run_benchmark(suite, ejecutar, seeds=, k=)` → `BenchmarkReport` (pass@k, por dominio/seed, gate), `comparar_modelos`, `benchmark_card`/`evaluation_card` (JSON interoperable), `export_olmes`, `reporte_benchmark_md`, `suites_desde_directorio` | Suites estandarizadas locales (ver `benchmarks/mini_mmlu.json`, `benchmarks/swe_mini.json`); codigo se ejecuta en sandbox; export a BenchmarkCard/EvaluationCard/OLMES |
+| `safety` | `detectar_jailbreak`, `toxicidad`, `detectar_refusal`, `evaluar_respuesta` → `SafetyVerdict`, `metricas_seguridad` (JSR, refusal_rate, toxicity_rate, precision/recall del guard), `SafetySuite.run(responder)` → `SafetyReport` con incidentes y TTD, `corpus_redteam`/`corpus_ampliado`, `redteam_por_plantilla` | Safety harness continuo stdlib (léxicos ES/EN), red-team programático, métricas normalizadas |
+| `judge_calib` | `CalibratedJudge.single/pairwise/reference_guided`, `calibrar_juez` (MAE, sesgo, Pearson, por dominio), `consenso(votos)` (media + entropía), `consenso_pares`, `TorneoElo` (leaderboard), `reporte_calibracion_md` | Juez calibrado: 3 modos, MAE reportado, consenso multi-juez, Elo |
+| `qatest` | `mutar_fuente`/`run_mutation` (operadores AOR/ROR/inversión/return/constante sobre AST, mutation score), `funciones_cambiadas` + `run_mutation_diff` (mutation dirigida al diff del PR), `fuzz_funcion` (PBT con seed, corpus de regresión persistido), `metricas_mantenibilidad`/`metricas_proyecto` (LOC, complejidad ciclomática, duplicación, deuda técnica) | Mutation testing + fuzzing/PBT + métricas de mantenibilidad |
+| `evidence` | `evidence_pack`/`verificar_pack` (HMAC con `HARNESS_SIGNING_KEY`, solo env), `pack_desde_store`, `exportar_pack_zip`, `export_otlp_end_to_end` (spans → collector, transport inyectable, verifica recepción), `evaluar_alertas` (toxicity trend, JSR, judge agreement drop, q regression), `rollback_si_regresion` + `marcar_rollback_en_store` | Evidence packs firmados, OTLP end-to-end, alertas avanzadas y rollback automático trazable |
+| `backends_multi` | `AnthropicBackend` (clave solo `ANTHROPIC_API_KEY`), `OllamaBackend` (local-first, `OLLAMA_BASE_URL`), `VertexBackend` ya en `vertex`, `SelectorModelos` (política costo/latencia/calidad), `FailoverPorModelo`, `backends_disponibles`/`failover_desde_env`, `TokenBudget` (tope de tokens por dominio, alertas 80%/100%) | Multi-backend real con failover por modelo y selección por costo/latencia/calidad; presupuesto de tokens (green AI) |
+
+
 ## CLI
 
 ```

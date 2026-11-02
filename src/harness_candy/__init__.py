@@ -8,6 +8,7 @@ from . import auth, tenancy, agents_catalog, guards, scheduler, datasets, metric
 from . import templates, config, summarize, watch, llm, rag, planner, codeedit, diffengine, workflow, orchestrator, codegen, evalsuite
 from . import stats, graph, textdiff, crypto, i18n, viz, notify
 from . import proposer, schedule, recursion, tree, selection, context, runmark, vertex
+from . import benchmarks, safety, judge_calib, qatest, evidence, backends_multi
 from .backends import BackendError, OpenAICompatibleBackend
 from .judge import LLMJudge, calibrate, swap_test
 from .metrics import MetricsCollector
@@ -59,6 +60,12 @@ from .selection import CandidateScore, SelectionResult, seleccionar_adoptado
 from .context import ContextBundle, Fragmento, construir_contexto
 from .runmark import ENV_RELEVANTES, RunMark, crear_runmark, fingerprint_env, verificar_reproducibilidad
 from .vertex import ADCError, VertexBackend, obtener_token_adc, token_desde_adc_file, token_desde_gcloud, token_desde_metadata
+from .benchmarks import BenchmarkCase, BenchmarkReport, BenchmarkSuite, benchmark_card, comparar_modelos, construir_prompt, evaluation_card, export_olmes, load_benchmark, puntuar_caso, reporte_benchmark_md, run_benchmark, suites_desde_directorio
+from .safety import SafetyMetrics, SafetyReport, SafetySuite, SafetyVerdict, corpus_ampliado, corpus_redteam, detectar_jailbreak, detectar_refusal, evaluar_respuesta, metricas_seguridad, redteam_por_plantilla, toxicidad, variantes_redteam
+from .judge_calib import CalibratedJudge, CalibrationReport, EloEntry, JudgeVote, TorneoElo, calibrar_juez, consenso, consenso_pares, reporte_calibracion_md
+from .qatest import FuzzReport, Mantenibilidad, MutationReport, funciones_cambiadas, fuzz_funcion, metricas_mantenibilidad, metricas_proyecto, mutar_fuente, run_mutation, run_mutation_diff
+from .evidence import ReglaAlerta, evaluar_alertas, evidence_pack, export_otlp_end_to_end, exportar_pack_zip, guardar_pack, cargar_pack, marcar_rollback_en_store, pack_desde_store, rollback_si_regresion, verificar_pack
+from .backends_multi import AnthropicBackend, FailoverPorModelo, MetricasModelo, OllamaBackend, SelectorModelos, TokenBudget, backends_disponibles, failover_desde_env
 from .templates import TemplateError, compile_template, render_file, render_string
 from .config import DEFAULTS as CONFIG_DEFAULTS, ENV_PREFIX, Config, ConfigWatcher, default_config, diff_configs, interpolar, load_config
 from .summarize import Summary, detectar_duplicados, keywords, resumen_por_parrafos, similitud_jaccard, summarize, summarize_longitud, tfidf_lite
@@ -166,5 +173,12 @@ __all__ = [
     "ContextBundle", "Fragmento", "construir_contexto",
     "ENV_RELEVANTES", "RunMark", "crear_runmark", "fingerprint_env", "verificar_reproducibilidad",
     "ADCError", "VertexBackend", "obtener_token_adc", "token_desde_adc_file", "token_desde_gcloud", "token_desde_metadata",
+    "benchmarks", "safety", "judge_calib", "qatest", "evidence", "backends_multi",
+    "BenchmarkCase", "BenchmarkReport", "BenchmarkSuite", "benchmark_card", "comparar_modelos", "reporte_benchmark_md", "suites_desde_directorio", "construir_prompt", "evaluation_card", "export_olmes", "load_benchmark", "puntuar_caso", "run_benchmark",
+    "SafetyMetrics", "SafetyReport", "SafetySuite", "SafetyVerdict", "corpus_ampliado", "corpus_redteam", "detectar_jailbreak", "detectar_refusal", "evaluar_respuesta", "metricas_seguridad", "redteam_por_plantilla", "toxicidad", "variantes_redteam",
+    "CalibratedJudge", "CalibrationReport", "EloEntry", "JudgeVote", "TorneoElo", "calibrar_juez", "consenso", "consenso_pares", "reporte_calibracion_md",
+    "FuzzReport", "Mantenibilidad", "MutationReport", "funciones_cambiadas", "fuzz_funcion", "metricas_mantenibilidad", "metricas_proyecto", "mutar_fuente", "run_mutation", "run_mutation_diff",
+    "ReglaAlerta", "evaluar_alertas", "evidence_pack", "export_otlp_end_to_end", "guardar_pack", "cargar_pack", "exportar_pack_zip", "marcar_rollback_en_store", "pack_desde_store", "rollback_si_regresion", "verificar_pack",
+    "AnthropicBackend", "FailoverPorModelo", "MetricasModelo", "OllamaBackend", "SelectorModelos", "TokenBudget", "backends_disponibles", "failover_desde_env",
     "__version__",
 ]
