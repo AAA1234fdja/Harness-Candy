@@ -27,7 +27,7 @@ Solo usa la librería estándar de Python (≥ 3.10). Sin dependencias obligator
 
 ```bash
 pip install -e .          # o simplemente añade src/ al PYTHONPATH
-python -m unittest discover -s tests -v   # 79 tests
+python -m unittest discover -s tests -v   # 104 tests
 python examples/demo_e2e.py               # flujo completo ISA→…→ELY
 python examples/demo_ablation.py          # experimento de ablación A/B/C/D
 ```
@@ -113,9 +113,12 @@ src/harness_candy/
   runner.py       run_task (Listado 1) + CoworkRunner (flujo de 8 pasos)
   adk_bridge.py   DAG → flujo ADK (Sequential/Parallel) si google-adk está instalado
   ablation.py     experimento A/B/C/D con veredicto estadístico
-tests/            79 tests (unittest, sin dependencias)
-examples/         demo_e2e.py, demo_ablation.py
-docs/             DISENO_COMBINADO.md (mapeo detallado al PDF)
+tests/            104 tests (unittest, sin dependencias)
+examples/         demo_e2e.py, demo_ablation.py, demo_xkiro.py, bench_escalabilidad.py
+benchmarks/       bench_escalabilidad.py (escalabilidad del DAG, métricas y tiempos)
+docs/             DISENO_COMBINADO.md (mapeo detallado al PDF), adr/ (ADR-001..005),
+                  ROADMAP.md, CHECKLIST_V3_ESTADO.md, templates/ (RFC, postmortem)
+.github/workflows/ci.yml  (lint + escaneo de secretos + tests 3.10-3.12 + contrato + smoke)
 ```
 
 ## Estado del checklist y documentación
@@ -128,6 +131,17 @@ docs/             DISENO_COMBINADO.md (mapeo detallado al PDF)
 - `docs/INDEPENDENCIA.md` — dependencias críticas identificadas y lista priorizada
   de migración a Rust (YEV, almacén de variables, sandbox), con mediciones de partida.
 - `docs/arquitectura.mmd` — diagrama mermaid de niveles y componentes (se renderiza en GitHub).
+- `docs/CHECKLIST_V3_ESTADO.md` — **checklist extendido v3 (24 secciones) auditado ítem por
+  ítem** contra este repo: ✅ cumplido con evidencia / ⚠️ pendiente técnico concreto /
+  🏢 organizacional (con responsable sugerido). Incluye el mapeo de los riesgos R1–R15.
+- `docs/ROADMAP.md` — fases 0–4 del §23 aterrizadas: Fase 0 y 1 hechas, Fase 2 en curso, 3–4 organizacionales.
+- `docs/adr/` — decisiones arquitectónicas (ADR-001 adaptador Harness² propio vs. repo
+  oficial de Google; ADR-002 ADK externo opcional; ADR-003 aislamiento; ADR-004 Python
+  stdlib; ADR-005 persistencia JSON), fundamentadas en el paper
+  *Harness 2: Recursive Agent Harnessing for an Open World* (arXiv:2610.14224).
+- `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODEOWNERS`, `.editorconfig`,
+  `.gitattributes` — gobernanza y operación del repo; CI en `.github/workflows/ci.yml`
+  (incluye **escaneo de secretos**: el repo no debe contener claves).
 
 ## Métricas que se miden (y las que no)
 

@@ -1,0 +1,26 @@
+# Cada ruta tiene un owner responsable de su revisión (ver CONTRIBUTING.md).
+* @AAA1234fdja
+
+# Núcleo de orquestación y calidad
+/src/harness_candy/dag.py @AAA1234fdja
+/src/harness_candy/quality.py @AAA1234fdja
+/src/harness_candy/harness.py @AAA1234fdja
+/src/harness_candy/protocols.py @AAA1234fdja
+/src/harness_candy/runner.py @AAA1234fdja
+
+# Seguridad: revisión obligatoria en cambios de estas rutas
+/src/harness_candy/security.py @AAA1234fdja
+/src/harness_candy/sandbox.py @AAA1234fdja
+/src/harness_candy/backends.py @AAA1234fdja
+/docs/INDEPENDENCIA.md @AAA1234fdja
+SECURITY.md @AAA1234fdja
+
+# Agentes, componentes y memoria
+/src/harness_candy/agents.py @AAA1234fdja
+/src/harness_candy/components.py @AAA1234fdja
+/src/harness_candy/memory.py @AAA1234fdja
+/src/harness_candy/judge.py @AAA1234fdja
+
+# Infraestructura del repo
+/.github/ @AAA1234fdja
+/pyproject.toml @AAA1234fdja
