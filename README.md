@@ -27,7 +27,7 @@ Solo usa la librería estándar de Python (≥ 3.10). Sin dependencias obligator
 
 ```bash
 pip install -e .          # o simplemente añade src/ al PYTHONPATH
-python -m unittest discover -s tests -v   # 338 tests
+python -m unittest discover -s tests -v   # 579 tests
 python examples/demo_e2e.py               # flujo completo ISA→…→ELY
 python examples/demo_ablation.py          # experimento de ablación A/B/C/D
 python examples/demo_suite.py             # suite JSON de tareas como DAG
@@ -118,10 +118,30 @@ src/harness_candy/
   runner.py       run_task (Listado 1) + CoworkRunner (flujo de 8 pasos)
   adk_bridge.py   DAG → flujo ADK (Sequential/Parallel) si google-adk está instalado
   ablation.py     experimento A/B/C/D con veredicto estadístico
-tests/            338 tests (unittest, sin dependencias)
+  templates.py    motor de plantillas propio (filtros, for/if/set, extends/block/include)
+  config.py       Config con precedencia archivo<env<kwargs, hot-reload, secretos enmascarados
+  summarize.py    resumen extractivo TextRank-lite + keywords + detección de duplicados
+  watch.py        watcher de archivos (sha256+mtime, debounce, diff de contenido)
+  llm.py          plantillas/few-shot/chat multi-turn/salida estructurada validada/costos
+  rag.py          RAG propio: BM25 + embeddings por hash + RRF + rerank + citas (zev)
+  planner.py      HTN-lite (precondiciones/efectos, verificar_plan, niveles paralelos)
+  codeedit.py     edición AST (imports/funciones/clases/decoradores/diff unificado seguro)
+  diffengine.py   diff semántico AST + complejidad ciclomática + diff de árboles
+  textdiff.py     diff línea a línea propio (unified_diff compatible con codeedit)
+  workflow.py     workflows JSON declarativos (task/set/parallel/foreach, when, retry, depends_on)
+  orchestrator.py campañas multi-objetivo con presupuesto global + A/B (Mann-Whitney)
+  codegen.py      scaffold de proyectos nuevos (pyproject/CI/tests/LICENSE/agents.json)
+  evalsuite.py    golden x semillas: matriz de confusión, bootstrap IC95, pass@k, reportes
+  stats.py        estadística propia (descriptiva, correlaciones, chi2/ANOVA, IC, bootstrap)
+  graph.py        DAG propio: topo, niveles, ruta crítica, paralelismo
+  crypto.py       sha256/HMAC, firma de corridas, PBKDF2, tokens, redacción de secretos
+  i18n.py         mensajes ES/EN con detección de idioma
+  viz.py          sparklines, barras, histogramas, heatmaps (ASCII/HTML)
+  notify.py       notificaciones multi-sink (callback/JSONL/webhook) tolerante a fallos
+tests/            579 tests (unittest, sin dependencias)
 examples/         demo_e2e, demo_ablation, demo_xkiro, demo_suite, demo_golden,
                   demo_agents, demo_cli, demo_server, bench_escalabilidad,
-                  suites/, golden/, agents.json
+                  suites/, golden/, agents.json, workflows/demo.json, campaigns/demo.json
 benchmarks/       bench_escalabilidad.py (escalabilidad del DAG, métricas y tiempos)
 docs/             DISENO_COMBINADO.md (mapeo al PDF), adr/ (ADR-001..005), ROADMAP.md,
                   CHECKLIST_V3_ESTADO.md, API.md (referencia), OPERACION.md (runbooks),

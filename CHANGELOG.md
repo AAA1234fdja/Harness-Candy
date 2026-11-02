@@ -4,6 +4,32 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) + SemVer.
 
 ## [Unreleased]
 
+### Añadido (cuarta ola: +~4.600 líneas en `src/`, 25 módulos nuevos, stdlib-only; suite 338 → 579 tests OK)
+- `templates.py`: motor de plantillas mini-Jinja compilado a Python (filtros, for/if/set, comentarios, herencia extends/block, include con anti-ciclo y anti-traversal).
+- `config.py`: esquema `config` publicado; precedencia archivo < env `HARNESS_*` < kwargs; interpolación `${VAR}`; `ConfigWatcher` (hot-reload por mtime); `to_safe_dict` enmascara secretos; `diff_configs`.
+- `summarize.py`: resumen extractivo TextRank-lite (stopwords ES), `keywords`, `tfidf_lite`, `similitud_jaccard`/`detectar_duplicados` (shingles), `summarize_longitud`.
+- `watch.py`: snapshots por sha256+mtime con globs/exclusiones, `diff_snapshots`, `WatchRunner` (poll/start/stop en hilo), `DebouncedWatchRunner`, `resumen_cambios`, `diff_contenido`.
+- `llm.py`: `PromptTemplate`, few-shot, `ChatSession` multi-turn con persistencia JSON y recorte por `max_messages`/`fit_context`, `structured_output` validado contra esquema con reintentos fail-closed, `estimate_tokens`/`estimate_cost`, `truncar_contexto`, `PromptBuilder`, `batch_complete`, `ConversationLogger`, `resumen_historial`.
+- `rag.py`: RAG propio sin dependencias: `chunk_text` con solapamiento, `BM25Index`, `HashingEmbedder`+`VectorIndex` (coseno), `HybridRetriever` (RRF + rerank por cobertura de términos + expansión de query), `RAGPipeline` con citas (contenido+procedencia, formato zev) y persistencia, `evaluate_retrieval` (recall@k, MRR).
+- `planner.py`: HTN-lite — `Operator(preconditions, effects, subtasks)`, `Planner.plan` (busqueda con estado mutable), `verificar_plan`, `niveles` (ejecución paralela por niveles), `estimate_cost`, `plan_simple`.
+- `codeedit.py`: edición estructurada vía AST — imports, funciones, renombrado (incluye llamadas), cuerpos, clases, decoradores, `apply_unified_diff` (valida contexto y offsets, rechaza si no cuadra), `validate_code` (ast + py_compile en sandbox), `generate_file_from_spec`, `generate_tests_for`.
+- `diffengine.py`: `ast_diff` (funciones/clases/imports añadidos, eliminados, cambiados), `ast_diff_detallado` con complexité ciclomática delta, `diff_arboles` (diff de dos directorios).
+- `textdiff.py`: diff línea a línea propio sobre difflib; `unified_diff` compatible con `codeedit.apply_unified_diff`; `diff_stats`, `resaltar_cambios`, `resumen_diff`.
+- `workflow.py`: workflows declarativos JSON — steps `task`/`set`/`parallel`/`foreach` con `when` (eval restringida, sin builtins), `retry`, `depends_on` (orden topológico, fail-closed ante ciclos).
+- `orchestrator.py`: `Campaign` con presupuesto global (tope duro FinOps), `run_campaign` (métricas agregadas, early-stop por calidad), `run_campaign_ab` (A/B con Mann-Whitney).
+- `codegen.py`: `scaffold_project` (pyproject, paquete src, test smoke que pasa, CI GitHub, LICENSE MIT, agents.json) y `scaffold_agent`.
+- `evalsuite.py`: golden × N semillas con matriz de confusión de veredictos, intervalo bootstrap del pass_rate, `significancia_vs` (p one-sided), `pass_at_k`/`curva_pass_k`, reportes HTML/Markdown y exportación CSV.
+- `stats.py`: estadística propia sin scipy — descriptiva, pearson/spearman/kendall, IC de media (t) y de proporción (Wilson), chi2 de contingencia (con Yates), ANOVA unifactorial, bootstrap genérico; p-valores via gamma/beta incompletas (series + fracciones continuas).
+- `graph.py`: `DiGraph` propio — orden topológico (Kahn FIFO), niveles, ruta crítica, paralelismo máximo, alcanzables, persistencia JSON.
+- `crypto.py`: sha256/HMAC-SHA256, firma/verificación de corridas (`sign_run`/`verify_run`, clave solo desde `HARNESS_SIGNING_KEY`), `gen_token` (secrets), comparación en tiempo constante, `derive_key` (PBKDF2-HMAC-SHA256), `mask_secret`, `redact_text`, `buscar_secretos`.
+- `i18n.py`: catálogo ES/EN con `t(lang, clave, **ctx)`, detección de idioma por stopwords, ampliación en runtime.
+- `viz.py`: sparklines, barras, histogramas, line chart y heatmap ASCII, barras de progreso, tablas HTML.
+- `notify.py`: `Notifier` multi-sink (`CallbackSink`, `JsonlSink`, `WebhookSink`) tolerante a fallos; `notificar_evento_watch`.
+- CLI nuevos: `config`, `summarize`, `rag index|query`, `plan`, `review`, `workflow`, `campaign`, `codegen`, `evalsuite`, `watch`.
+- HTTP nuevos: `GET /config`, `GET /plan`, `POST /review`, `POST /workflow`, `POST /rag/index`, `GET|POST /rag/query`, `POST /summarize`.
+- Ejemplos: `examples/workflows/demo.json`, `examples/campaigns/demo.json`.
+
+
 ### Añadido
 - `backends.OpenAICompatibleBackend` (xkiro/LiteLLM/vLLM...): la API key solo se lee de `XKIRO_API_KEY` (variable de entorno), endpoint vía `XKIRO_BASE_URL`, modelo vía `XKIRO_MODEL`.
 - `examples/demo_xkiro.py` para probar con un modelo real.

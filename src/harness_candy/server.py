@@ -260,6 +260,32 @@ class HarnessHandler(BaseHTTPRequestHandler):
                 return self._send_json({"tools": self.cfg.tools.catalog()})
             if path == "/events":
                 return self._handle_events(qs)
+            if path == "/config":
+                from .config import Config
+
+                return self._send_json(Config.load(None).to_safe_dict())
+            if path == "/plan":
+                from .planner import PlanningError, plan_simple
+
+                objetivo = (qs.get("objetivo") or ["informe_de_seguridad"])[0]
+                try:
+                    return self._send_json(plan_simple(objetivo).to_dict())
+                except PlanningError as e:
+                    return self._send_json({"error": str(e)}, status=404)
+            if path == "/rag/query":
+                from .rag import RAGPipeline
+
+                q = (qs.get("q") or [""])[0]
+                k = int(qs.get("k", ["4"])[0])
+                idx = (qs.get("index") or ["rag_index.json"])[0]
+                p = Path(idx)
+                if not p.is_absolute():
+                    p = (self.cfg.base_dir / idx).resolve()
+                    if not str(p).startswith(str(self.cfg.base_dir)):
+                        return self._send_json({"error": "index fuera del directorio base"}, status=400)
+                if not p.exists():
+                    return self._send_json({"error": "indice no encontrado; crea uno con POST /rag/index"}, status=404)
+                return self._send_json(RAGPipeline.load(p).query(q, k=k))
             return self._send_json({"error": "ruta desconocida", "path": path}, status=404)
         except ValueError as e:
             return self._send_json({"error": str(e)}, status=400)
@@ -349,6 +375,57 @@ class HarnessHandler(BaseHTTPRequestHandler):
                     trace_dir=self.cfg.trace_dir, seed=int(body.get("seed", 0)),
                 )
                 return self._send_json(report.to_dict(), status=200 if report.pass_rate >= report.min_pass_rate else 422)
+            if path == "/review":
+                diff = body.get("diff")
+                if not diff:
+                    return self._send_json({"error": "falta 'diff' en el body"}, status=400)
+                from .review import ReviewAgent
+
+                msg = ReviewAgent().review_diff(diff)
+                return self._send_json(msg.to_dict(), status=200 if msg.veredicto == "aprobado" else 422)
+            if path == "/workflow":
+                from .workflow import Workflow, run_workflow
+
+                try:
+                    wf = Workflow.from_dict(body.get("workflow") or body)
+                except ValueError as e:
+                    return self._send_json({"error": str(e)}, status=400)
+                runner = self.cfg.runner
+                res = run_workflow(
+                    wf, agent=runner.xev.agents["XEV"], pool=runner.pool, store=runner.store,
+                    budget=runner.budget, wev=runner.wev, trace_dir=self.cfg.trace_dir,
+                    seed=int(body.get("seed", 0)),
+                )
+                return self._send_json(res.to_dict(), status=201)
+            if path == "/rag/index":
+                from .rag import RAGPipeline
+
+                dir_rel = body.get("dir", "")
+                p = (self.cfg.base_dir / dir_rel).resolve() if dir_rel else self.cfg.base_dir
+                if not str(p).startswith(str(self.cfg.base_dir)) or not p.exists():
+                    return self._send_json({"error": "dir fuera de la base o inexistente"}, status=400)
+                pipe = RAGPipeline(chunk_size=int(body.get("chunk", 800)), chunk_overlap=int(body.get("overlap", 120)))
+                n = pipe.add_dir(p) if p.is_dir() else pipe.add_file(p)
+                out = self.cfg.base_dir / (body.get("out") or "rag_index.json")
+                pipe.save(out)
+                return self._send_json({"chunks": n, "stats": pipe.stats(), "index": str(out)}, status=201)
+            if path == "/rag/query":
+                from .rag import RAGPipeline
+
+                idx = body.get("index") or "rag_index.json"
+                p = Path(idx)
+                if not p.is_absolute():
+                    p = (self.cfg.base_dir / idx).resolve()
+                    if not str(p).startswith(str(self.cfg.base_dir)):
+                        return self._send_json({"error": "index fuera del directorio base"}, status=400)
+                if not p.exists():
+                    return self._send_json({"error": "indice no encontrado; crea uno con POST /rag/index"}, status=404)
+                return self._send_json(RAGPipeline.load(p).query(body.get("q", ""), k=int(body.get("k", 4))))
+            if path == "/summarize":
+                from .summarize import summarize
+
+                s = summarize(body.get("texto", ""), k=int(body.get("k", 3)))
+                return self._send_json(s.to_dict())
             return self._send_json({"error": "ruta desconocida", "path": path}, status=404)
         except ValueError as e:
             return self._send_json({"error": str(e)}, status=400)

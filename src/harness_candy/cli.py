@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -203,6 +205,142 @@ def cmd_serve(args) -> int:
     return serve_main(["--host", args.host, "--port", str(args.port), "--store", args.store, "--trace-dir", args.trace_dir, "--backend", args.backend])
 
 
+
+def cmd_config(args) -> int:
+    from .config import Config
+
+    cfg = Config.load(args.file)
+    data = cfg.to_safe_dict() if not args.full else cfg.to_dict()
+    _save_json(data, args.out)
+    print(json.dumps(data, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_summarize(args) -> int:
+    from .summarize import summarize
+
+    texto = Path(args.file).read_text(encoding="utf-8") if args.file else (args.text or "")
+    if not texto.strip():
+        print("texto vacio", file=sys.stderr)
+        return 2
+    s = summarize(texto, k=args.k)
+    _save_json(s.to_dict(), args.out)
+    print(s.texto)
+    return 0
+
+
+def cmd_rag(args) -> int:
+    from .rag import RAGPipeline
+
+    if args.command == "index":
+        pipe = RAGPipeline(chunk_size=args.chunk, chunk_overlap=args.overlap)
+        d = Path(args.dir)
+        n = pipe.add_dir(d) if d.is_dir() else pipe.add_file(d)
+        pipe.save(args.out)
+        print(f"indexados {n} chunks -> {args.out} ({pipe.stats()})")
+        return 0
+    pipe = RAGPipeline.load(args.index or args.out)
+    r = pipe.query(args.query or "", k=args.k)
+    _save_json(r, args.out if args.command == "query" and args.query_out else None)
+    for f in r["fragmentos"]:
+        print(f"[{f['score']:.3f}] {f['procedencia']}#{f['indice']}: {f['contenido'][:140]}")
+    return 0
+
+
+def cmd_plan(args) -> int:
+    from .planner import plan_simple
+
+    p = plan_simple(args.objetivo)
+    _save_json(p.to_dict(), args.out)
+    print(" -> ".join(p.pasos) if p.pasos else "(objetivo ya satisfecho)")
+    return 0
+
+
+def cmd_review(args) -> int:
+    from .review import ReviewAgent
+
+    diff = Path(args.file).read_text(encoding="utf-8")
+    msg = ReviewAgent().review_diff(diff)
+    _save_json(msg.to_dict(), args.out)
+    print(msg.veredicto)
+    return 0 if msg.veredicto == "aprobado" else 2
+
+
+def cmd_workflow(args) -> int:
+    from .workflow import Workflow, run_workflow
+
+    wf = Workflow.load(args.file)
+    runner = build_runner(args.trace_dir, backend_kind=args.backend)
+    agent = runner.xev.agents["XEV"]
+    res = run_workflow(
+        wf, agent=agent, pool=runner.pool, store=runner.store, budget=runner.budget,
+        wev=runner.wev, trace_dir=args.trace_dir, seed=args.seed,
+    )
+    _save_json(res.to_dict(), args.out)
+    for sid, st in res.steps.items():
+        print(f"{sid}: {st.status}")
+    return 0 if all(st.status != "failed" for st in res.steps.values()) else 2
+
+
+def cmd_campaign(args) -> int:
+    from .orchestrator import Campaign, run_campaign
+
+    camp = Campaign.load(args.file)
+    runner = build_runner(args.trace_dir, backend_kind=args.backend)
+    res = run_campaign(camp, runner=runner, trace_dir=args.trace_dir)
+    _save_json(res.to_dict(), args.out)
+    print(res.resumen_ejecutivo())
+    return 0
+
+
+def cmd_codegen(args) -> int:
+    from .codegen import scaffold_project
+
+    files = scaffold_project(args.dir, args.name, author=args.author)
+    for rel in sorted(files):
+        print(rel)
+    return 0
+
+
+def cmd_evalsuite(args) -> int:
+    from .evalsuite import html_eval_report, run_eval_suite
+
+    pool = make_pool()
+    backend = make_backend(args.backend)
+    agent = SecurityScanAgent("XEV", "modelo-ligero", backend)
+    seeds = tuple(int(x) for x in args.seeds.split(",") if x.strip())
+    ev = run_eval_suite(
+        args.file, agent=agent, pool=pool, store=HarnessStore(), wev=WEV(SecurityGate()),
+        seeds=seeds, trace_dir=args.trace_dir,
+    )
+    _save_json(ev.to_dict(), args.out)
+    if args.html:
+        Path(args.html).write_text(html_eval_report(ev), encoding="utf-8")
+        print(f"reporte HTML en {args.html}", file=sys.stderr)
+    print(f"pass_rate={ev.pass_rate_global:.3f} ({ev.n_casos} casos) bootstrap={ev.bootstrap}")
+    return 0
+
+
+def cmd_watch(args) -> int:
+    from .watch import WatchRunner
+
+    eventos: list = []
+    w = WatchRunner(args.dir, eventos.append, interval_s=args.interval)
+    if args.once:
+        ev = w.poll_once()
+        _save_json(ev.to_dict() if ev else {"cambios": {}}, args.out)
+        print("sin cambios" if ev is None else json.dumps(ev.to_dict(), ensure_ascii=False))
+        return 0
+    w.start()
+    print(f"vigilando {args.dir} cada {args.interval}s (Ctrl+C para parar)")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        w.stop()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="harness-candy", description="Ely-Cowork ADK+Harness^2: orquestacion multiagente con calidad medible")
     sub = p.add_subparsers(dest="command", required=True)
@@ -286,6 +424,78 @@ def build_parser() -> argparse.ArgumentParser:
     pse.add_argument("--trace-dir", default="traces")
     pse.add_argument("--backend", default="scripted", choices=["scripted", "xkiro"])
     pse.set_defaults(fn=cmd_serve)
+
+    pcf = sub.add_parser("config", help="muestra la configuracion efectiva (secretos enmascarados)")
+    pcf.add_argument("--file", default=None, help="config.json o .env-lite opcional")
+    pcf.add_argument("--full", action="store_true", help="sin enmascarar (cuidado)")
+    pcf.add_argument("--out", default=None)
+    pcf.set_defaults(fn=cmd_config)
+
+    psm = sub.add_parser("summarize", help="resumen extractivo (TextRank-lite) de un texto")
+    psm.add_argument("--file", default=None)
+    psm.add_argument("--text", default=None)
+    psm.add_argument("-k", type=int, default=3)
+    psm.add_argument("--out", default=None)
+    psm.set_defaults(fn=cmd_summarize)
+
+    prag = sub.add_parser("rag", help="RAG propio: indexa documentos y responde con citas")
+    prag.add_argument("command", choices=["index", "query"])
+    prag.add_argument("--dir", default=None, help="directorio o archivo a indexar")
+    prag.add_argument("--index", default=None, help="indice JSON existente (para query)")
+    prag.add_argument("--out", default="rag_index.json", help="donde guardar indice/resultado")
+    prag.add_argument("--query", default=None)
+    prag.add_argument("--query-out", default=None)
+    prag.add_argument("-k", type=int, default=4)
+    prag.add_argument("--chunk", type=int, default=800)
+    prag.add_argument("--overlap", type=int, default=120)
+    prag.set_defaults(fn=cmd_rag)
+
+    ppl = sub.add_parser("plan", help="plan HTN-lite de ejemplo (informe de seguridad)")
+    ppl.add_argument("--objetivo", default="informe_de_seguridad")
+    ppl.add_argument("--out", default=None)
+    ppl.set_defaults(fn=cmd_plan)
+
+    prev = sub.add_parser("review", help="revisa un diff unificado (WEV review de PR)")
+    prev.add_argument("--file", required=True)
+    prev.add_argument("--out", default=None)
+    prev.set_defaults(fn=cmd_review)
+
+    pwf = sub.add_parser("workflow", help="ejecuta un workflow declarativo JSON (steps task/set/parallel)")
+    pwf.add_argument("--file", required=True)
+    pwf.add_argument("--backend", default="scripted", choices=["scripted", "xkiro"])
+    pwf.add_argument("--trace-dir", default="traces")
+    pwf.add_argument("--seed", type=int, default=0)
+    pwf.add_argument("--out", default=None)
+    pwf.set_defaults(fn=cmd_workflow)
+
+    pcam = sub.add_parser("campaign", help="campana de objetivos con presupuesto global (FinOps)")
+    pcam.add_argument("--file", required=True)
+    pcam.add_argument("--backend", default="scripted", choices=["scripted", "xkiro"])
+    pcam.add_argument("--trace-dir", default="traces")
+    pcam.add_argument("--out", default=None)
+    pcam.set_defaults(fn=cmd_campaign)
+
+    pcg = sub.add_parser("codegen", help="genera el esqueleto de un proyecto Python nuevo")
+    pcg.add_argument("dir")
+    pcg.add_argument("--name", required=True)
+    pcg.add_argument("--author", default="AAA1234fdja")
+    pcg.set_defaults(fn=cmd_codegen)
+
+    pev = sub.add_parser("evalsuite", help="golden set x N semillas con intervalo bootstrap e informe HTML")
+    pev.add_argument("--file", required=True)
+    pev.add_argument("--seeds", default="0,1,2")
+    pev.add_argument("--backend", default="scripted", choices=["scripted", "xkiro"])
+    pev.add_argument("--trace-dir", default="traces")
+    pev.add_argument("--out", default=None)
+    pev.add_argument("--html", default=None)
+    pev.set_defaults(fn=cmd_evalsuite)
+
+    pwa = sub.add_parser("watch", help="vigila un directorio y reporta cambios (snapshots sha256)")
+    pwa.add_argument("dir")
+    pwa.add_argument("--once", action="store_true", help="una sola pasada de polling")
+    pwa.add_argument("--interval", type=float, default=1.0)
+    pwa.add_argument("--out", default=None)
+    pwa.set_defaults(fn=cmd_watch)
 
     return p
 

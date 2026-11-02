@@ -75,7 +75,36 @@ harness-candy run --objetivo "informe de seguridad de src/" --input root=src --b
 #   FailoverBackend([OpenAICompatibleBackend(), backend_local])
 ```
 
-## 7. Dónde seguir
+## 7. Utilidades de sistema (cuarta ola, 3 min)
+
+Además del núcleo Ely-Cowork, el paquete incluye utilidades propias (solo stdlib):
+
+```bash
+# RAG propio: indexar docs y preguntar con citas
+harness-candy rag index --dir docs --out /tmp/idx.json
+harness-candy rag query --index /tmp/idx.json --query "dónde va la clave API?" -k 3
+
+# Workflow declarativo (steps task/set/parallel/foreach con when y depends_on)
+harness-candy workflow --file examples/workflows/demo.json --out /tmp/wf.json
+
+# Campaña multi-objetivo con presupuesto global
+harness-candy campaign --file examples/campaigns/demo.json
+
+# Evaluación agregada: golden x semillas con bootstrap e informe HTML
+harness-candy evalsuite --file examples/golden/security_scan.json --seeds 0,1,2 --html /tmp/eval.html
+
+# Resumen extractivo, plan HTN, review de diff, config, watch, codegen
+harness-candy summarize --file README.md -k 3
+harness-candy plan
+harness-candy review --file mi.diff
+harness-candy config
+harness-candy watch src --once
+harness-candy codegen /tmp/mi-proy --name mi-proy
+```
+
+En Python: `harness_candy.RAGPipeline`, `Workflow`/`run_workflow`, `Campaign`/`run_campaign`, `run_eval_suite`, `Planner`, `codeedit`/`diffengine`/`textdiff`, `stats`, `crypto` (firma de corridas), `graph`, `viz`, `notify`, `templates`, `config`, `summarize`, `watch`, `llm` (`ChatSession`, `structured_output`). Ver `docs/API.md` §"Cuarta ola".
+
+## 8. Dónde seguir
 
 - `docs/API.md` — referencia completa (módulos, CLI, HTTP, esquemas).
 - `docs/OPERACION.md` — runbooks (incidentes, rollback, caché, FinOps...).

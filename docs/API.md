@@ -56,6 +56,32 @@ El contrato de datos está publicado como **JSON Schema** (módulo `schemas`,
 | `cli` | `main(argv)`; entry point `harness-candy` | §4.2 CLI |
 | `server` | `make_server(host, port, store=...)`, `HarnessServer` | §6.2 API REST local |
 
+## Cuarta ola: utilidades de sistema (stdlib-only)
+
+| Módulo | API clave | Para qué sirve |
+|---|---|---|
+| `templates` | `compile_template(src)`, `render_string(src, **ctx)`, `render_file(path)`, herencia `{% extends/block %}`, `{% include %}` | plantillas propias (filtros upper/lower/trim/length/tojson/join/default/int/float, for/if/set, comentarios) |
+| `config` | `Config.load(path?, environ?, **kw)`, `ConfigWatcher` (hot-reload), `interpolar` (`${VAR}`), `diff_configs`, esquema `config` | configuración con precedencia archivo < env `HARNESS_*` < kwargs; secretos enmascarados (`to_safe_dict`) |
+| `summarize` | `summarize(texto, k)` → `Summary`, `resumen_por_parrafos`, `keywords`, `tfidf_lite`, `similitud_jaccard`, `detectar_duplicados`, `summarize_longitud` | resumen extractivo TextRank-lite (sin LLM) |
+| `watch` | `snapshot(dir, globs)`, `diff_snapshots`, `WatchRunner(dir, on_change).poll_once()/start()/stop()`, `DebouncedWatchRunner`, `resumen_cambios`, `diff_contenido` | vigilar archivos por sha256+mtime |
+| `llm` | `PromptTemplate`, `build_few_shot`, `ChatSession` (multi-turn, persistencia JSON, `fit_context`, `ConversationLogger`, `resumen_historial`), `structured_output` (valida contra esquema + reintentos fail-closed), `estimate_tokens`, `estimate_cost`, `truncar_contexto`, `PromptBuilder`, `batch_complete` | capa LLM avanzada sobre cualquier backend |
+| `rag` | `RAGPipeline` (`add_text/add_file/add_dir`, `query` con citas zev, `save/load`), `chunk_text`, `BM25Index`, `HashingEmbedder`+`VectorIndex`, `HybridRetriever` (RRF + rerank por cobertura + expansión de query), `evaluate_retrieval` (recall@k, MRR) | RAG propio sin dependencias externas |
+| `planner` | `Planner(ops).plan(goal, estado)`, `Operator(preconditions, effects, subtasks)`, `verificar_plan`, `niveles` (paralelismo), `estimate_cost`, `plan_simple()` | HTN-lite con precondiciones/efectos |
+| `codeedit` | `add_import`, `add_function`, `rename_function`, `set_function_body`, `add_class`, `add_decorator`, `remove_function`, `list_functions`, `apply_unified_diff` (valida contexto, fail-closed), `validate_code` (ast+py_compile en sandbox), `FileSpec`+`generate_file_from_spec`, `generate_tests_for` | edición estructurada de código vía AST |
+| `diffengine` | `ast_diff(a, b)` → `CodeDiff`, `ast_diff_detallado` (complejidad ciclomática delta), `complejidad_ciclomatica`, `diff_arboles(dir_a, dir_b)` | diff semántico (qué cambió, no el texto) |
+| `textdiff` | `diff_lineas`, `unified_diff` (compatible con `codeedit.apply_unified_diff`), `similarity`, `diff_stats`, `resaltar_cambios`, `resumen_diff` | diff línea a línea propio |
+| `workflow` | `Workflow.from_dict/load`, `run_workflow(...)` → `WorkflowResult`; steps `task`/`set`/`parallel`/`foreach` con `when` (eval restringida), `retry`, `depends_on` (orden topológico) | pipelines declarativos JSON |
+| `orchestrator` | `Campaign.load(path)`, `run_campaign(...)` → `CampaignResult` (q medio, tasa aprobados, costo total, early-stop), `run_campaign_ab` (A/B con Mann-Whitney) | campañas multi-objetivo con presupuesto global (FinOps) |
+| `codegen` | `scaffold_project(dir, name)` (pyproject/CI/tests/LICENSE/agents.json), `scaffold_agent(dir, name, model)` | esqueletos de proyecto nuevos |
+| `evalsuite` | `run_eval_suite(golden, seeds=(0,1,2))` → `EvalSuiteResult` (matriz de confusión, bootstrap IC95), `significancia_vs`, `pass_at_k`, `curva_pass_k`, `html_eval_report`, `markdown_eval_report`, `exportar_csv` | evaluación agregada multi-semilla con estadística |
+| `stats` | `describe`, `mean/median/percentil/stdev/variance/iqr`, `pearson/spearman/kendall_tau`, `ic_media`, `ic_proporcion_wilson`, `chi2_contingencia`, `anova_oneway`, `bootstrap_ci`, `normal_cdf/chi2_sf/t_sf` | estadística propia (p-valores incluidos, sin scipy) |
+| `graph` | `DiGraph` (`topo_sort`, `niveles`, `critical_path`, `max_paralelismo`, `alcanzables`), `dependencias_a_grafo`, persistencia JSON | análisis de DAGs |
+| `crypto` | `sha256_hex`, `hmac_sha256`, `sign_run/verify_run`, `gen_token`, `constant_time_eq`, `derive_key` (PBKDF2), `mask_secret`, `redact_text`, `buscar_secretos` | integridad y manejo seguro de secretos (claves solo en env) |
+| `i18n` | `t(lang, clave, **ctx)` (es/en), `detectar_idioma`, `agregar_mensajes` | mensajes del sistema en ES/EN |
+| `viz` | `sparkline`, `bar_chart`, `histogram`, `line_chart`, `heatmap`, `progress_bar`, `table_html`, `resumen_serie`, `tarjeta_html` | gráficos ASCII/HTML para reportes |
+| `notify` | `Notifier([sinks])`, `CallbackSink`, `JsonlSink`, `WebhookSink`, `notificar_evento_watch` | notificaciones de eventos (un sink caído no tumba a los demás) |
+
+
 ## CLI
 
 ```
@@ -71,6 +97,17 @@ harness-candy bench [N]
 harness-candy cache [--dir .harness_cache] [--clear | --stats]
 harness-candy tools [--root .]
 harness-candy serve --host 0.0.0.0 --port 8000 --store json://runs
+harness-candy config [--file c.json|.env] [--full]        # config efectiva (secretos enmascarados)
+harness-candy summarize --file texto.md -k 3 | --text "..."
+harness-candy rag index --dir docs --out rag_index.json
+harness-candy rag query --index rag_index.json --query "..." -k 4
+harness-candy plan [--objetivo informe_de_seguridad]
+harness-candy review --file diff.patch                      # exit 2 si el review rechaza
+harness-candy workflow --file examples/workflows/demo.json
+harness-candy campaign --file examples/campaigns/demo.json
+harness-candy codegen DIR --name mi-proyecto
+harness-candy evalsuite --file golden.json --seeds 0,1,2 --html eval.html
+harness-candy watch DIR [--once]
 ```
 
 Códigos de salida de `run`/`suite`/`task`: 0 = todo aprobado, 2 = alguna tarea
@@ -97,6 +134,13 @@ no aprobada (sirve para CI). `golden`: 0 si pasa el gate, 2 si no.
 | GET | `/schemas[/nombre]` | esquemas publicados |
 | GET | `/tools` | catálogo de herramientas |
 | GET | `/events?timeout=S` | stream SSE del bus de eventos |
+| GET | `/config` | configuración efectiva (secretos enmascarados) |
+| GET | `/plan?objetivo=...` | plan HTN-lite de ejemplo |
+| POST | `/review` | `{"diff": "..."}` → veredicto WEV (200 aprobado / 422 rechazado) |
+| POST | `/workflow` | body = workflow JSON → ejecuta (201) |
+| POST | `/rag/index` | `{"dir": "docs", "out": "rag_index.json", "chunk"?, "overlap"?}` → 201 |
+| GET/POST | `/rag/query` | `{"q": "...", "k": 4}` o `?q=...&k=4` → fragmentos con procedencia |
+| POST | `/summarize` | `{"texto": "...", "k": 3}` → resumen extractivo |
 
 Seguridad del servidor: cuerpo ≤ 1 MB, sin logueo de cuerpos, acepta cualquier
 Host (necesario para preview local); las ejecuciones pasan por XEV/WEV (allowlist

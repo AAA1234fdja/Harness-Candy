@@ -1,0 +1,11 @@
+{
+  "name": "campana-demo",
+  "budget_total": 100000,
+  "beta": 0.5,
+  "k": 2,
+  "m": 3,
+  "seed": 0,
+  "objetivos": [
+    {"objetivo": "auditar seguridad del paquete limpio", "inputs": {"root": "examples/golden/limpio"}, "seed": 0}
+  ]
+}
