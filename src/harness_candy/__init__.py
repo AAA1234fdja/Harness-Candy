@@ -37,6 +37,14 @@ from .storage import JsonRunStore, SqliteRunStore, open_store
 from .suite import Suite, SuiteResult, load_suite, run_suite
 from .evalkit import CaseResult, EvalReport, GoldenCase, GoldenSet, load_golden, run_golden
 from .factory import build_runner, make_backend, make_pool
+from .auth import IpRateLimiter, TokenAuth
+from .tenancy import TenantManager, validate_tenant
+from .agents_catalog import AgentCatalog, AgentSpec, load_catalog
+from .guards import ForbiddenPatternsGuard, GuardPipeline, JsonSchemaGuard, MaxLengthGuard, NoSecretsGuard, RequiredKeysGuard, default_pipeline
+from .scheduler import Job, Scheduler
+from .datasets import Comparison, compare_reports, load_dataset, run_dataset
+from .metrics_export import OtlpExporter, otlp_spans, prometheus_text
+from .web import dashboard_html
 
 __version__ = "0.1.0"
 
@@ -74,5 +82,11 @@ __all__ = [
     "Suite", "SuiteResult", "load_suite", "run_suite",
     "CaseResult", "EvalReport", "GoldenCase", "GoldenSet", "load_golden", "run_golden",
     "build_runner", "make_backend", "make_pool",
+    "auth", "tenancy", "agents_catalog", "guards", "scheduler", "datasets", "metrics_export", "web",
+    "IpRateLimiter", "TokenAuth", "TenantManager", "validate_tenant",
+    "AgentCatalog", "AgentSpec", "load_catalog",
+    "ForbiddenPatternsGuard", "GuardPipeline", "JsonSchemaGuard", "MaxLengthGuard", "NoSecretsGuard", "RequiredKeysGuard", "default_pipeline",
+    "Job", "Scheduler", "Comparison", "compare_reports", "load_dataset", "run_dataset",
+    "OtlpExporter", "otlp_spans", "prometheus_text", "dashboard_html",
     "__version__",
 ]

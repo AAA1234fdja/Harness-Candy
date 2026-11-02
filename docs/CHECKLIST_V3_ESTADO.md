@@ -38,9 +38,18 @@ nuevos. Ítems que pasan de ⚠️ a ✅ en este repo:
 | §6.2 API/visor de corridas (drill-down) | ⚠️ | ✅ | `server.py`: `/runs`, `/runs/{id}`, reportes por formato, `/events` SSE, `/suite`, `/golden`, `/schemas`, `/tools` |
 | §4.4 DSL de suites JSON + ejecución como DAG | ⚠️ | ✅ | `suite.py` + `examples/suites/demo.json` + `demo_suite.py` |
 
+| §5.2 Agentes declarativos desde archivo (agents.yaml) | ⚠️ | ✅ | `agents_catalog.py` + esquema `agents_catalog` |
+| §5.8 Guardrails de salida componibles | ⚠️ | ✅ | `guards.py` (NoSecrets/MaxLength/JsonSchema/RequiredKeys/ForbiddenPatterns + pipeline tolerante a fallos) |
+| §4.3 Scheduling justo de suites | ⚠️ | ✅ | `scheduler.py` (jobs por intervalo, sin solapamiento, historial); `POST/GET/DELETE /jobs` |
+| §10.2 Auth del servidor + rate limit | ⚠️ | ✅ | `auth.py` (bearer `HARNESS_API_TOKEN`, comparación en tiempo constante; 120 req/min por IP) |
+| §1.2 Multi-tenant base | ⚠️ | ✅ | `tenancy.py` (stores/trace_dir aislados por tenant, validación anti-traversal) |
+| §11.1 Métricas a Prometheus/OTLP + visor | ⚠️ | ✅ (base) | `metrics_export.py` (`/metrics` texto Prometheus, spans OTLP/JSON, `OtlpExporter`); `web.py` dashboard en `/` con SSE; OTel nativo sigue 🏢 |
+| §5.9/§21 Evaluación en lote + comparación A/B | ⚠️ | ✅ | `datasets.py` (JSONL + `compare_reports` con delta en pp y casos que cambian) |
+| §6.2/§21.4 Dashboard unificado | ⚠️ | ✅ | `web.py` + endpoints `/`, `/metrics`, `/jobs`, `/events` |
+
 Sigue pendiente técnico (⚠️): cassettes HTTP de proveedores reales; sharding/watch
 de suites; cobertura con herramienta en CI; contenedor/gVisor para aislamiento
-fuerte; actions de GitHub pineadas por SHA; OTel real; Dockerfile de servicio.
+fuerte; actions de GitHub pineadas por SHA; Dockerfile de servicio; OTel nativo.
 
 ---
 
@@ -291,7 +300,7 @@ integrado (`examples/demo_e2e.py`, `demo_xkiro.py`), config (`pyproject.toml`).
 
 ## Resumen ejecutivo
 
-- **Cierre técnico en el repo**: **264 tests OK**, CI verde (lint+secretos+tests 3.10–3.12+
+- **Cierre técnico en el repo**: **322 tests OK**, CI verde (lint+secretos+tests 3.10–3.12+
   contrato+smoke), 7 ejemplos ejecutables, bench, ADRs 001–005, CLI empaquetada
   (`harness-candy`), servidor HTTP local con API REST+SSE, esquemas JSON Schema
   publicados, golden sets con gate, reportes JUnit/HTML/MD, caché LLM, failover

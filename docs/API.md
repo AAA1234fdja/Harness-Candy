@@ -70,7 +70,12 @@ no aprobada (sirve para CI). `golden`: 0 si pasa el gate, 2 si no.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/health` | estado + versiones |
+| GET | `/` | dashboard web (HTML+JS, consulta la API con URLs relativas) |
+| GET | `/health` | estado + versiones (siempre abierto) |
+| GET | `/metrics` | métricas en formato texto Prometheus |
+| GET | `/jobs` | jobs programados (scheduler) + historial |
+| POST | `/jobs` | `{"name", "suite_path", "interval_s", "jitter_s?"}` → 201 |
+| DELETE | `/jobs/{job_id}` | elimina un job |
 | GET | `/runs?limit=N` | corridas guardadas |
 | POST | `/runs` | `{"objetivo", "inputs", "seed"}` → ejecuta y guarda (201) |
 | GET | `/runs/{id}` | detalle |

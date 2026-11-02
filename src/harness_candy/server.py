@@ -30,18 +30,23 @@ from typing import Any, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__
+from .agents import SecurityScanAgent
+from .alerts import BudgetMonitor, LogSink
+from .auth import IpRateLimiter, TokenAuth
+from .components import WEV
 from .evalkit import run_golden
 from .factory import build_runner, make_backend, make_pool
-from .agents import SecurityScanAgent
 from .harness import Budget, HarnessStore
-from .components import WEV
+from .metrics_export import prometheus_text
 from .report import write_report
 from .schemas import SCHEMAS, SCHEMA_VERSION, schema_json
+from .scheduler import Scheduler
 from .security import SecurityGate
 from .storage import JsonRunStore, RunStore, open_store
 from .streaming import EventBus, SseBroadcaster
 from .suite import Suite, run_suite
 from .tools import default_registry
+from .web import dashboard_html
 
 MAX_BODY = 1_000_000  # 1 MB
 
@@ -56,6 +61,10 @@ class ServerConfig:
         backend_kind: str = "scripted",
         bus: EventBus | None = None,
         base_dir: str | Path = ".",
+        auth: TokenAuth | None = None,
+        rate_limit: int = 120,
+        rate_window_s: float = 60.0,
+        enable_scheduler: bool = True,
     ):
         self.store = store or JsonRunStore(runs_dir)
         self.trace_dir = trace_dir
@@ -64,8 +73,40 @@ class ServerConfig:
         self.broadcaster = SseBroadcaster(self.bus)
         self.base_dir = Path(base_dir).resolve()
         self.tools = default_registry(self.base_dir)
+        self.auth = auth if auth is not None else TokenAuth()  # se activa solo si hay HARNESS_API_TOKEN
+        self.limiter = IpRateLimiter(limit=rate_limit, window_s=rate_window_s)
         self._runner = None
         self._runner_lock = threading.Lock()
+        self.budget_monitor: BudgetMonitor | None = None
+        # scheduler de suites periodicas (jobs), con run_fn real
+        if enable_scheduler:
+            self.scheduler = Scheduler(self._run_suite_job, base_dir=self.base_dir)
+        else:
+            self.scheduler = None
+
+    def _run_suite_job(self, job) -> str:
+        """Ejecuta la suite de un job y guarda el resultado; devuelve el status."""
+        from .suite import load_suite
+
+        p = (self.base_dir / job.suite_path).resolve()
+        suite = load_suite(p)
+        for t in suite.tasks:
+            if "root" in t.get("inputs", {}):
+                t["inputs"]["root"] = str((self.base_dir / t["inputs"]["root"]).resolve())
+        pool = make_pool()
+        agent = SecurityScanAgent("XEV", "modelo-ligero", make_backend(self.backend_kind))
+        budget = Budget(**(suite.budget or {"total": 10_000, "beta": 0.5, "k": 2, "m": 3}))
+        self.budget_monitor = BudgetMonitor(budget, LogSink(), event_bus=self.bus)
+        result = run_suite(
+            suite, agent=agent, pool=pool, store=HarnessStore(), budget=budget,
+            wev=WEV(SecurityGate()), trace_dir=self.trace_dir,
+            on_event=lambda ev, d: self.bus.emit(ev, d),
+        )
+        data = result.to_dict()
+        self.store.save(data)
+        self.budget_monitor.notify_spent()
+        estados = {r["status"] for r in data["dag_results"].values()}
+        return ",".join(sorted(estados))
 
     @property
     def runner(self):
@@ -119,12 +160,34 @@ class HarnessHandler(BaseHTTPRequestHandler):
             raise ValueError("el cuerpo debe ser un objeto JSON")
         return data
 
+    # -- guardas de acceso (auth bearer opcional + rate limit por IP) --------
+    def _guard(self, path: str):
+        """Devuelve (status, payload) de rechazo, o None si se puede seguir."""
+        if path != "/health" and not self.cfg.auth.check_header(self.headers.get("Authorization")):
+            return 401, {"error": "falta o invalido Authorization: Bearer <HARNESS_API_TOKEN>"}
+        ip = self.client_address[0] if self.client_address else "?"
+        if not self.cfg.limiter.allow(ip):
+            return 429, {"error": "rate limit excedido", "remaining": 0}
+        return None
+
     # -- rutas ----------------------------------------------------------------
     def do_GET(self) -> None:  # noqa: N802
         try:
             u = urlparse(self.path)
             path = u.path.rstrip("/") or "/"
             qs = parse_qs(u.query)
+            rech = self._guard(path)
+            if rech is not None:
+                return self._send_json(rech[1], status=rech[0])
+            if path == "/" or path == "/index.html":
+                return self._send_text(dashboard_html(), "text/html; charset=utf-8")
+            if path == "/metrics":
+                return self._send_text(self._prometheus(), "text/plain; version=0.0.4; charset=utf-8")
+            if path == "/jobs":
+                sched = self.cfg.scheduler
+                if sched is None:
+                    return self._send_json({"error": "scheduler desactivado"}, status=404)
+                return self._send_json({"jobs": sched.list(), "history": sched.history[-50:]})
             if path == "/health":
                 return self._send_json({"status": "ok", "version": __version__, "schema_version": SCHEMA_VERSION, "time": time.time()})
             if path == "/runs":
@@ -173,11 +236,46 @@ class HarnessHandler(BaseHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             return self._send_json({"error": f"{type(e).__name__}: {e}"}, status=500)
 
+    def _prometheus(self) -> str:
+        """Métricas agregadas del store + métricas de la corrida más reciente."""
+        try:
+            total = self.cfg.store.count()
+        except Exception:
+            total = -1
+        metricas: dict = {"corridas_total": total}
+        try:
+            ultimos = self.cfg.store.list(limit=1)
+            if ultimos:
+                m = ultimos[0].get("metrics", {})
+                for k, v in m.items():
+                    if isinstance(v, (int, float)) and not isinstance(v, bool):
+                        metricas[f"ultima_{k}"] = v
+        except Exception:
+            pass
+        return prometheus_text(metricas, labels={"servicio": "harness-candy"})
+
     def do_POST(self) -> None:  # noqa: N802
         try:
             u = urlparse(self.path)
             path = u.path.rstrip("/") or "/"
+            rech = self._guard(path)
+            if rech is not None:
+                return self._send_json(rech[1], status=rech[0])
             body = self._read_body()
+            if path == "/jobs":
+                sched = self.cfg.scheduler
+                if sched is None:
+                    return self._send_json({"error": "scheduler desactivado"}, status=404)
+                try:
+                    job = sched.add(
+                        name=body.get("name") or body.get("suite_path", "job"),
+                        suite_path=body["suite_path"],
+                        interval_s=float(body.get("interval_s", 300)),
+                        jitter_s=float(body.get("jitter_s", 0.0)),
+                    )
+                except (KeyError, ValueError) as e:
+                    return self._send_json({"error": str(e)}, status=400)
+                return self._send_json(job.to_dict(), status=201)
             if path == "/runs":
                 objetivo = body.get("objetivo")
                 if not objetivo:
@@ -229,11 +327,19 @@ class HarnessHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:  # noqa: N802
         try:
-            m = re.fullmatch(r"/runs/([A-Za-z0-9_-]+)", urlparse(self.path).path.rstrip("/"))
-            if not m:
-                return self._send_json({"error": "ruta desconocida"}, status=404)
-            ok = self.cfg.store.delete(m.group(1))
-            return self._send_json({"deleted": ok}, status=200 if ok else 404)
+            path = urlparse(self.path).path.rstrip("/")
+            rech = self._guard(path)
+            if rech is not None:
+                return self._send_json(rech[1], status=rech[0])
+            m = re.fullmatch(r"/runs/([A-Za-z0-9_-]+)", path)
+            if m:
+                ok = self.cfg.store.delete(m.group(1))
+                return self._send_json({"deleted": ok}, status=200 if ok else 404)
+            m = re.fullmatch(r"/jobs/(job-[A-Za-z0-9]+)", path)
+            if m and self.cfg.scheduler is not None:
+                ok = self.cfg.scheduler.remove(m.group(1))
+                return self._send_json({"deleted": ok}, status=200 if ok else 404)
+            return self._send_json({"error": "ruta desconocida"}, status=404)
         except Exception as e:  # noqa: BLE001
             return self._send_json({"error": str(e)}, status=500)
 
@@ -278,11 +384,19 @@ def make_server(
     backend_kind: str = "scripted",
     bus: EventBus | None = None,
     base_dir: str | Path = ".",
+    auth: TokenAuth | None = None,
+    rate_limit: int = 120,
+    rate_window_s: float = 60.0,
+    enable_scheduler: bool = True,
 ) -> HarnessServer:
     """Crea el servidor (todavia no atiende): usar ``serve_forever()`` o en un thread."""
     if isinstance(store, (str, Path)):
         store = open_store(store)
-    cfg = ServerConfig(store=store, trace_dir=trace_dir, runs_dir=runs_dir, backend_kind=backend_kind, bus=bus, base_dir=base_dir)
+    cfg = ServerConfig(
+        store=store, trace_dir=trace_dir, runs_dir=runs_dir, backend_kind=backend_kind,
+        bus=bus, base_dir=base_dir, auth=auth, rate_limit=rate_limit,
+        rate_window_s=rate_window_s, enable_scheduler=enable_scheduler,
+    )
     return HarnessServer(host, port, cfg)
 
 

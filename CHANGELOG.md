@@ -40,6 +40,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) + SemVer.
 - Fix: `SecurityScanAgent` resuelve `inputs.root` a ruta absoluta (el sandbox usa cwd efímero).
 - Tests: 160 nuevos (264 en total) — `test_schemas, test_tools, test_cache, test_failover, test_retry, test_plugins, test_streaming, test_alerts, test_report, test_storage, test_suite, test_evalkit, test_cli, test_server`.
 
+### Añadido (segunda ola)
+- `auth.py`: `TokenAuth` (bearer desde `HARNESS_API_TOKEN`, comparación en tiempo constante con `hmac.compare_digest`) e `IpRateLimiter` (ventana deslizante por IP). El servidor exige token en todas las rutas salvo `/health` cuando el env está definido, y aplica rate limit (120/min por defecto).
+- `tenancy.py`: `TenantManager` — stores y trace_dir aislados por tenant (`data/runs/<tenant>/`) con validación anti-traversal del nombre.
+- `agents_catalog.py`: catálogo de agentes desde JSON (nuevo esquema publicado `agents_catalog`) con `build_agents(backend)`.
+- `guards.py`: pipeline de guardrails de salida (`NoSecretsGuard`, `MaxLengthGuard`, `JsonSchemaGuard`, `RequiredKeysGuard`, `ForbiddenPatternsGuard`); un guard roto no tumba la corrida.
+- `scheduler.py`: jobs de suites por intervalo con anti-solapamiento e historial; endpoints `POST/GET/DELETE /jobs`.
+- `datasets.py`: datasets JSONL de evaluación (`load_dataset`, `run_dataset`) y comparación A/B (`compare_reports`, delta en puntos porcentuales + casos que cambian).
+- `metrics_export.py`: `prometheus_text` (endpoint `/metrics`), `otlp_spans` (OTLP/JSON) y `OtlpExporter` (POST al collector, mejor esfuerzo).
+- `web.py`: dashboard en `/` (HTML+JS vanilla, URLs relativas, SSE en vivo de `/events`, tabla de corridas con enlaces a reportes).
+- Servidor: nuevas rutas `/`, `/metrics`, `/jobs`; guardas de auth + rate limit en todos los handlers.
+- Tests: 58 nuevos (322 en total) — `test_auth, test_tenancy, test_agents_catalog, test_guards, test_scheduler, test_datasets, test_metrics_export, test_server_extra`.
+- Docs actualizadas: `API.md`, `OPERACION.md` (runbooks 11–15), `CHECKLIST_V3_ESTADO.md`, README.
+
 ## [0.1.0] - 2026-11-02
 
 ### Añadido

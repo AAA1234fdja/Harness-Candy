@@ -84,6 +84,42 @@ harness-candy cache --clear
 rm -rf traces/*.jsonl runs_demo/   # según retención acordada (🏢 org)
 ```
 
+### 11. Panel web y métricas
+```bash
+harness-candy serve --port 8000
+# abrir http://localhost:8000/  -> panel con corridas, lanzador y eventos SSE en vivo
+curl localhost:8000/metrics      # formato Prometheus (raspable)
+```
+
+### 12. Jobs programados (scheduler de suites)
+```bash
+curl -X POST localhost:8000/jobs -d '{"name":"scan-diario","suite_path":"examples/suites/demo.json","interval_s":3600}'
+curl localhost:8000/jobs
+curl -X DELETE localhost:8000/jobs/<job_id>
+```
+
+### 13. Proteger el servidor con token (opcional)
+```bash
+export HARNESS_API_TOKEN="$(openssl rand -hex 32)"   # solo en el entorno, nunca en el repo
+harness-candy serve --port 8000
+# todas las rutas salvo /health exigen:  Authorization: Bearer $HARNESS_API_TOKEN
+```
+
+### 14. Multi-tenant (namespaces por proyecto)
+```python
+from harness_candy.tenancy import TenantManager
+tm = TenantManager("data")
+store = tm.store("proyecto-a")        # aislado en data/runs/proyecto-a/
+trace_dir = tm.trace_dir("proyecto-a")  # data/taces/proyecto-a/
+```
+
+### 15. Exportar métricas a Prometheus / OTLP
+```python
+from harness_candy.metrics_export import prometheus_text, OtlpExporter, otlp_spans
+prometheus_text(run["metrics"], labels={"run_id": run["run_id"]})   # endpoint /metrics
+OtlpExporter("http://collector:4318/v1/traces").export(trace_entries)  # mejor esfuerzo
+```
+
 ## Métricas que ver
 `RunResult.metrics` (y `/runs/{id}`): tasa de requisitos, pruebas
 superadas/total, defectos por severidad, tiempo, costo de adaptación,
