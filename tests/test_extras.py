@@ -6,8 +6,14 @@ metricas y curva k."""
 import threading
 import unittest
 
-import _path  # noqa: F401
-from helpers import make_repo, make_runner
+try:
+    import _path  # noqa: F401
+except ModuleNotFoundError:  # al importar como tests.test_* desde la raiz del repo
+    from tests import _path  # noqa: F401
+try:
+    from helpers import make_repo, make_runner
+except ModuleNotFoundError:  # al importar como tests.test_* desde la raiz del repo
+    from tests.helpers import make_repo, make_runner
 
 from harness_candy.agents import Agent, Artifact, ScriptedBackend, Task
 from harness_candy.components import (

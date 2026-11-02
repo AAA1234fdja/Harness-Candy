@@ -1,6 +1,9 @@
 import unittest
 
-import _path  # noqa: F401
+try:
+    import _path  # noqa: F401
+except ModuleNotFoundError:  # al importar como tests.test_* desde la raiz del repo
+    from tests import _path  # noqa: F401
 from harness_candy.protocols import (
     Envelope,
     Hallazgo,

@@ -58,4 +58,8 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install -e .
       - name: Contrato de protocolos + reproducibilidad
+        env:
+          # tests/_path.py y tests/helpers.py se importan como modulos sueltos;
+          # con discover basta, pero en forma tests.test_* hace falta tests/ en el path
+          PYTHONPATH: ${{ github.workspace }}/tests
         run: python -m unittest tests.test_protocols tests.test_extras -v

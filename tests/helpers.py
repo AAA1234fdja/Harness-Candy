@@ -2,7 +2,10 @@
 import tempfile
 from pathlib import Path
 
-import _path  # noqa: F401
+try:
+    import _path  # noqa: F401
+except ModuleNotFoundError:  # al importar como tests.test_* desde la raiz del repo
+    from tests import _path  # noqa: F401
 from harness_candy.agents import ScriptedBackend, SecurityScanAgent
 from harness_candy.components import ELY, ISA, WEV, XEV, YEV, ZEV
 from harness_candy.harness import Budget, HarnessStore
