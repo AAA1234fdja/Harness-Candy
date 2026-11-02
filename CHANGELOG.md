@@ -4,6 +4,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) + SemVer.
 
 ## [Unreleased]
 
+### Añadido (séptima ola: memoria administrada en 3 capas — carpeta `memoria/`; suite 747 → 764 tests OK)
+- `memoria.py`: `GestorMemoria` sobre `memoria/` con tres capas — **cache** (datos momentáneos con TTL, `purgar_cache()`, fuera de git vía .gitignore), **chat** (buscable por proyecto en `chat/<proyecto>/`, admisión solo si `relevancia >= 0.5`, con `--forzar`), **ecosistema** (global entre proyectos, `proyecto` como etiqueta de origen). Regla común fail-closed: cada entrada es `tipo + idea + explicacion` de **máx. 300 palabras** (`EntradaLargaError` si se pasa). Búsqueda BM25 léxica (reusa `rag.BM25Index`) por capa; `listar/leer/borrar/stats` con palabras medias y expiradas pendientes.
+- `memoria/README.md`: contrato de las 3 capas y ejemplos de uso.
+- `scripts/memoria` (ejecutable): `guardar-cache | guardar-chat | guardar-eco | buscar | listar | purgar | stats | leer`; exit 2 cuando una entrada se rechaza (>300 palabras o relevancia insuficiente).
+- `examples/demo_memoria.py`: demo end-to-end en directorio temporal.
+- Tests: 17 nuevos (764 en total) — `test_memoria` (validación 300 palabras, TTL/purga, admisión por relevancia, scoping por proyecto, búsqueda BM25, persistencia JSON, CLI vía subprocess).
+- Docs actualizadas: `API.md` (sección séptima ola), README, `CHECKLIST_V3_ESTADO.md`, TUTORIAL.
+
 ### Añadido (sexta ola: cierra brechas del documento exhaustivo — eval multi-benchmark, safety continua, juez calibrado, QA mutation/fuzz/PBT, evidence packs, multi-backend; suite 669 → 747 tests OK)
 - `benchmarks.py`: evaluador multi-benchmark local — casos `mcq`/`codigo` (sandbox)/`abierto`, few-shot, semillas, `pass@k`, gate por suite, por dominio/seed; `comparar_modelos` con delta + Mann-Whitney; export `BenchmarkCard`/`EvaluationCard`/`export_olmes`; suites de ejemplo en `benchmarks/mini_mmlu.json` y `benchmarks/swe_mini.json`.
 - `safety.py`: safety harness continuo stdlib (léxicos ES/EN): `detectar_jailbreak`, `toxicidad`, `detectar_refusal`, `evaluar_respuesta` (veredicto con jailbreak exitoso separado); métricas JSR / refusal_rate / toxicity_rate / precision-recall del guard vs anotaciones; `SafetySuite` con corpus red-team embebido, incidentes con severidad y time-to-detect, gate propio; `redteam_por_plantilla` ordena qué plantillas rompen más.

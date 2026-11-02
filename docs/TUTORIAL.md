@@ -193,7 +193,34 @@ texto = fo.complete("hola")                  # reintenta en orden hasta responde
 sel = SelectorModelos("calidad"); sel.registrar("flash", costo_per_1k=0.0001, p95_s=0.2, q_media=0.7)
 ```
 
-## 10. Dónde seguir
+## 10. Memoria administrada en 3 capas (2 min)
+
+```python
+from harness_candy import GestorMemoria
+
+g = GestorMemoria("memoria")                     # carpeta del repo
+# cache: momentanea, con TTL (no va a git)
+g.guardar_cache("borrador", "estado del build", "compilando", ttl=600)
+# chat: dentro del proyecto, solo lo relevante (relevancia >= 0.5)
+g.guardar_chat("Harness-Candy", "decision", "usamos BM25 local", "sin dependencias", relevancia=0.9)
+# ecosistema: global, entre todos los proyectos
+g.guardar_ecosistema("patron", "max 300 palabras por entrada", "tipo+idea+explicacion", proyecto="Harness-Candy")
+
+for score, e in g.buscar("chat", "por que BM25?", proyecto="Harness-Candy"):
+    print(score, e.tipo, e.idea)
+g.purgar_cache()                                 # borra lo expirado
+print(g.stats())                                 # entradas y palabras por capa
+```
+
+```bash
+scripts/memoria guardar-chat Harness-Candy decision "usamos BM25 local" "sin dependencias" --relevancia 0.9
+scripts/memoria buscar ecosistema "300 palabras"
+scripts/memoria purgar && scripts/memoria stats
+```
+
+Regla: **ninguna entrada es un volcado** — `tipo + idea + explicacion`, máximo 300 palabras; lo que se pasa se rechaza.
+
+## 11. Dónde seguir
 
 - `docs/API.md` — referencia completa (módulos, CLI, HTTP, esquemas).
 - `docs/OPERACION.md` — runbooks (incidentes, rollback, caché, FinOps...).

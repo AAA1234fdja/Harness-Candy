@@ -112,6 +112,15 @@ El contrato de datos está publicado como **JSON Schema** (módulo `schemas`,
 | `backends_multi` | `AnthropicBackend` (clave solo `ANTHROPIC_API_KEY`), `OllamaBackend` (local-first, `OLLAMA_BASE_URL`), `VertexBackend` ya en `vertex`, `SelectorModelos` (política costo/latencia/calidad), `FailoverPorModelo`, `backends_disponibles`/`failover_desde_env`, `TokenBudget` (tope de tokens por dominio, alertas 80%/100%) | Multi-backend real con failover por modelo y selección por costo/latencia/calidad; presupuesto de tokens (green AI) |
 
 
+## Séptima ola: memoria administrada en 3 capas (`memoria/`)
+
+| Módulo / carpeta | API clave | Para qué sirve |
+|---|---|---|
+| `memoria.py` + `memoria/` | `GestorMemoria(root)`, `guardar_cache(tipo, idea, explicacion, ttl=)`, `guardar_chat(proyecto, ..., relevancia=, forzar=)`, `guardar_ecosistema(..., proyecto=)`, `buscar(capa, query, proyecto=, top_k=)`, `purgar_cache()`, `listar/leer/borrar/stats` | Carpeta `memoria/` con 3 capas: **cache** (momentánea, TTL, purgable, fuera de git), **chat** (buscable por proyecto, solo relevantes admitidas), **ecosistema** (global entre proyectos). Regla común: entrada = `tipo + idea + explicacion` de **máx. 300 palabras**, fail-closed (`EntradaLargaError`); búsqueda BM25 (reusa `rag`) |
+| `scripts/memoria` | `guardar-cache/guardar-chat/guardar-eco/buscar/listar/purgar/stats/leer` (exit 2 si se rechaza la entrada) | CLI para administrar `memoria/` desde la terminal |
+| `examples/demo_memoria.py` | demo end-to-end en dir temporal | ejemplo de las 3 capas + búsqueda + purga |
+
+
 ## CLI
 
 ```

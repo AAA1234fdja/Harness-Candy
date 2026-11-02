@@ -8,7 +8,7 @@ from . import auth, tenancy, agents_catalog, guards, scheduler, datasets, metric
 from . import templates, config, summarize, watch, llm, rag, planner, codeedit, diffengine, workflow, orchestrator, codegen, evalsuite
 from . import stats, graph, textdiff, crypto, i18n, viz, notify
 from . import proposer, schedule, recursion, tree, selection, context, runmark, vertex
-from . import benchmarks, safety, judge_calib, qatest, evidence, backends_multi
+from . import benchmarks, safety, judge_calib, qatest, evidence, backends_multi, memoria
 from .backends import BackendError, OpenAICompatibleBackend
 from .judge import LLMJudge, calibrate, swap_test
 from .metrics import MetricsCollector
@@ -66,6 +66,7 @@ from .judge_calib import CalibratedJudge, CalibrationReport, EloEntry, JudgeVote
 from .qatest import FuzzReport, Mantenibilidad, MutationReport, funciones_cambiadas, fuzz_funcion, metricas_mantenibilidad, metricas_proyecto, mutar_fuente, run_mutation, run_mutation_diff
 from .evidence import ReglaAlerta, evaluar_alertas, evidence_pack, export_otlp_end_to_end, exportar_pack_zip, guardar_pack, cargar_pack, marcar_rollback_en_store, pack_desde_store, rollback_si_regresion, verificar_pack
 from .backends_multi import AnthropicBackend, FailoverPorModelo, MetricasModelo, OllamaBackend, SelectorModelos, TokenBudget, backends_disponibles, failover_desde_env
+from .memoria import CAPAS, MAX_PALABRAS, UMBRAL_RELEVANCIA, CapaDesconocidaError, EntradaLargaError, EntradaMemoria, GestorMemoria, contar_palabras, validar_entrada
 from .templates import TemplateError, compile_template, render_file, render_string
 from .config import DEFAULTS as CONFIG_DEFAULTS, ENV_PREFIX, Config, ConfigWatcher, default_config, diff_configs, interpolar, load_config
 from .summarize import Summary, detectar_duplicados, keywords, resumen_por_parrafos, similitud_jaccard, summarize, summarize_longitud, tfidf_lite
@@ -180,5 +181,6 @@ __all__ = [
     "FuzzReport", "Mantenibilidad", "MutationReport", "funciones_cambiadas", "fuzz_funcion", "metricas_mantenibilidad", "metricas_proyecto", "mutar_fuente", "run_mutation", "run_mutation_diff",
     "ReglaAlerta", "evaluar_alertas", "evidence_pack", "export_otlp_end_to_end", "guardar_pack", "cargar_pack", "exportar_pack_zip", "marcar_rollback_en_store", "pack_desde_store", "rollback_si_regresion", "verificar_pack",
     "AnthropicBackend", "FailoverPorModelo", "MetricasModelo", "OllamaBackend", "SelectorModelos", "TokenBudget", "backends_disponibles", "failover_desde_env",
+    "CAPAS", "MAX_PALABRAS", "UMBRAL_RELEVANCIA", "CapaDesconocidaError", "EntradaLargaError", "EntradaMemoria", "GestorMemoria", "contar_palabras", "validar_entrada",
     "__version__",
 ]

@@ -27,7 +27,7 @@ Solo usa la librería estándar de Python (≥ 3.10). Sin dependencias obligator
 
 ```bash
 pip install -e .          # o simplemente añade src/ al PYTHONPATH
-python -m unittest discover -s tests -v   # 747 tests
+python -m unittest discover -s tests -v   # 764 tests
 python examples/demo_e2e.py               # flujo completo ISA→…→ELY
 python examples/demo_ablation.py          # experimento de ablación A/B/C/D
 python examples/demo_suite.py             # suite JSON de tareas como DAG
@@ -156,7 +156,10 @@ scripts/          harness2-setup | harness2-check | harness2-judge (gate, exit 2
   evidence.py     evidence packs firmados (HMAC, clave solo en env), OTLP end-to-end, alertas avanzadas, rollback automatico
   backends_multi.py  Anthropic + Ollama (local) + Vertex, selector costo/latencia/calidad, failover por modelo, TokenBudget
 benchmarks/       mini_mmlu.json (10 casos MCQ estilo MMLU) y swe_mini.json (4 casos de codigo estilo SWE-bench)
-tests/            747 tests (unittest, sin dependencias)
+memoria/          memoria administrada en 3 capas: cache/ (momentanea, TTL, fuera de git), chat/<proyecto>/
+                  (buscable por proyecto, solo relevantes admitidas) y ecosistema/ (global entre proyectos);
+                  cada entrada = tipo + idea + explicacion, max 300 palabras (fail-closed); admin: scripts/memoria
+tests/            764 tests (unittest, sin dependencias)
 examples/         demo_e2e, demo_ablation, demo_xkiro, demo_suite, demo_golden,
                   demo_agents, demo_cli, demo_server, bench_escalabilidad,
                   suites/, golden/, agents.json, workflows/demo.json, campaigns/demo.json

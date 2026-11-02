@@ -17,3 +17,6 @@ runs_*/
 examples/suites/*.html
 *.db
 *.sqlite*
+
+# memoria momentanea (cache): no va al repo
+memoria/cache/

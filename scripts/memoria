@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""memoria: administra la carpeta memoria/ (cache | chat | ecosistema).
+
+Subcomandos:
+  guardar-cache  "tipo" "idea" "explicacion" [--ttl 3600] [--tags a,b]
+  guardar-chat   <proyecto> "tipo" "idea" "explicacion" [--relevancia 0.9] [--forzar]
+  guardar-eco    "tipo" "idea" "explicacion" [--proyecto P] [--tags a,b]
+  buscar         <capa> "query" [--proyecto P] [--top-k 5]
+  listar         <capa> [--proyecto P] [--todas]
+  purgar         borra la cache expirada
+  stats          resumen por capa (entradas, palabras, expiradas)
+  leer           <capa> <id> [--proyecto P]
+
+Exit 0 ok; 2 si la entrada se rechaza (>300 palabras o relevancia insuficiente);
+1 por error de uso.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from harness_candy.memoria import (  # noqa: E402
+    CAPAS,
+    EntradaLargaError,
+    GestorMemoria,
+)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="memoria", description="administra memoria/ (cache|chat|ecosistema)")
+    ap.add_argument("--root", default=str(ROOT / "memoria"), help="carpeta raiz de la memoria")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    def add_entrada(p, con_proyecto=False):
+        if con_proyecto:
+            p.add_argument("proyecto")
+        p.add_argument("tipo")
+        p.add_argument("idea")
+        p.add_argument("explicacion", nargs="?", default="")
+        p.add_argument("--tags", default="")
+        p.add_argument("--relevancia", type=float, default=1.0)
+        p.add_argument("--forzar", action="store_true")
+        p.add_argument("--ttl", type=float, default=3600.0)
+        p.add_argument("--proyecto-tag", default="")
+
+    p = sub.add_parser("guardar-cache", help="dato momentaneo con TTL")
+    add_entrada(p)
+    p = sub.add_parser("guardar-chat", help="entrada del proyecto (solo si es relevante)")
+    add_entrada(p, con_proyecto=True)
+    p = sub.add_parser("guardar-eco", help="entrada global del ecosistema")
+    add_entrada(p)
+
+    p = sub.add_parser("buscar", help="busqueda BM25 en una capa")
+    p.add_argument("capa", choices=CAPAS)
+    p.add_argument("query")
+    p.add_argument("--proyecto", default=None)
+    p.add_argument("--top-k", type=int, default=5)
+
+    p = sub.add_parser("listar", help="lista entradas de una capa")
+    p.add_argument("capa", choices=CAPAS)
+    p.add_argument("--proyecto", default=None)
+    p.add_argument("--todas", action="store_true", help="incluye cache expirada")
+
+    sub.add_parser("purgar", help="borra cache expirada")
+    sub.add_parser("stats", help="resumen por capa")
+
+    p = sub.add_parser("leer", help="lee una entrada por id")
+    p.add_argument("capa", choices=CAPAS)
+    p.add_argument("id")
+    p.add_argument("--proyecto", default="")
+
+    args = ap.parse_args()
+    g = GestorMemoria(args.root)
+    tags = [t.strip() for t in args.tags.split(",") if t.strip()] if getattr(args, "tags", "") else []
+
+    try:
+        if args.cmd == "guardar-cache":
+            e = g.guardar_cache(args.tipo, args.idea, args.explicacion, ttl=args.ttl, tags=tags)
+            print(json.dumps(e.to_dict(), ensure_ascii=False))
+            return 0
+        if args.cmd == "guardar-chat":
+            e = g.guardar_chat(args.proyecto, args.tipo, args.idea, args.explicacion,
+                               relevancia=args.relevancia, tags=tags, forzar=args.forzar)
+            if e is None:
+                print(f"RECHAZADA: relevancia {args.relevancia} < umbral {g.umbral_relevancia} (use --forzar para guardar igual)",
+                      file=sys.stderr)
+                return 2
+            print(json.dumps(e.to_dict(), ensure_ascii=False))
+            return 0
+        if args.cmd == "guardar-eco":
+            e = g.guardar_ecosistema(args.tipo, args.idea, args.explicacion,
+                                     proyecto=args.proyecto_tag, tags=tags)
+            print(json.dumps(e.to_dict(), ensure_ascii=False))
+            return 0
+        if args.cmd == "buscar":
+            hits = g.buscar(args.capa, args.query, proyecto=args.proyecto, top_k=args.top_k)
+            for score, e in hits:
+                print(f"[{score:.3f}] ({e.capa}{'/' + e.proyecto if e.proyecto else ''}) {e.tipo}: {e.idea}  (id={e.id}, {e.palabras} palabras)")
+            if not hits:
+                print("sin resultados")
+            return 0
+        if args.cmd == "listar":
+            for e in g.listar(args.capa, proyecto=args.proyecto, incluir_expiradas=args.todas):
+                estado = " EXPIRADA" if e.expirada else ""
+                print(f"{e.id}  {e.tipo}: {e.idea}{estado}  ({e.palabras} palabras, {e.creado_en:.0f})")
+            return 0
+        if args.cmd == "purgar":
+            n = g.purgar_cache()
+            print(f"cache purgada: {n} entradas expiradas borradas")
+            return 0
+        if args.cmd == "stats":
+            print(json.dumps(g.stats(), ensure_ascii=False, indent=2))
+            return 0
+        if args.cmd == "leer":
+            e = g.leer(args.capa, args.id, proyecto=args.proyecto)
+            if e is None:
+                print("no encontrada", file=sys.stderr)
+                return 1
+            print(json.dumps(e.to_dict(), ensure_ascii=False, indent=2))
+            return 0
+    except EntradaLargaError as e:
+        print(f"RECHAZADA: {e}", file=sys.stderr)
+        return 2
+    except (ValueError, KeyError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
