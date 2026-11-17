@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""harness2-setup: prepara y verifica el entorno de trabajo de Harness^2.
+
+- Calcula ROOT (padre de scripts/) y anade src/ a sys.path.
+- Crea los directorios de corridas y traces.
+- Imprime la configuracion efectiva SIN secretos (solo NOMBRES de env).
+- Verifica importaciones basicas de los modulos de la quinta ola.
+
+Uso:
+    scripts/harness2-setup [--store DIR] [--traces DIR] [--quiet]
+
+Exit 0 si todo OK, 1 si falta algo.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+# variables de entorno relevantes cuyo VALOR jamas se imprime
+ENV_RELEVANTES = [
+    "XKIRO_API_KEY",
+    "GOOGLE_CLOUD_PROJECT",
+    "VERTEX_LOCATION",
+    "VERTEX_MODEL",
+    "HARBOR_USERNAME",
+    "HARBOR_PASSWORD",
+    "HARNESS_SIGNING_KEY",
+]
+
+MODULOS_OLA5 = [
+    "proposer", "schedule", "recursion", "tree", "selection", "context", "runmark", "vertex",
+]
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="prepara el entorno de Harness^2")
+    ap.add_argument("--store", default=str(ROOT / "runs_h2"), help="directorio del store de corridas")
+    ap.add_argument("--traces", default=str(ROOT / "traces"), help="directorio de traces")
+    ap.add_argument("--quiet", action="store_true", help="solo imprime el resumen final")
+    args = ap.parse_args()
+
+    def log(msg: str) -> None:
+        if not args.quiet:
+            print(msg)
+
+    ok = True
+
+    # 1) directorios
+    for d in (args.store, args.traces):
+        p = Path(d)
+        p.mkdir(parents=True, exist_ok=True)
+        log(f"[ok] directorio {p}")
+
+    # 2) imports de la quinta ola
+    import harness_candy as hc
+
+    log(f"[ok] harness_candy v{hc.__version__} importado desde {ROOT / 'src'}")
+    for m in MODULOS_OLA5:
+        try:
+            __import__(f"harness_candy.{m}")
+            log(f"[ok] modulo harness_candy.{m}")
+        except Exception as e:  # noqa: BLE001
+            ok = False
+            print(f"[FALLO] harness_candy.{m}: {type(e).__name__}: {e}", file=sys.stderr)
+
+    # 3) terceras partes empaquetadas
+    tp = ROOT / "third_party"
+    if str(tp) not in sys.path:
+        sys.path.insert(0, str(tp))
+    for pkg in ("jb_runner", "lab_runner", "wb_runner"):
+        try:
+            __import__(pkg)
+            log(f"[ok] third_party/{pkg}")
+        except Exception as e:  # noqa: BLE001
+            ok = False
+            print(f"[FALLO] third_party/{pkg}: {type(e).__name__}: {e}", file=sys.stderr)
+
+    # 4) entorno: SOLO nombres, nunca valores
+    presentes = [v for v in ENV_RELEVANTES if os.environ.get(v)]
+    ausentes = [v for v in ENV_RELEVANTES if not os.environ.get(v)]
+    log(f"[info] env presentes (nombres): {presentes or 'ninguna'}")
+    log(f"[info] env ausentes: {ausentes or 'ninguna'}")
+    if "XKIRO_API_KEY" not in presentes:
+        log("[aviso] XKIRO_API_KEY no definida: el backend xkiro pedira la clave en runtime")
+
+    # 5) resumen
+    if ok:
+        print(f"SETUP OK: store={args.store} traces={args.traces} modulos_ola5={len(MODULOS_OLA5)} third_party=3")
+        return 0
+    print("SETUP CON FALLOS", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

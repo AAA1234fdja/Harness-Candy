@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""harness2-judge: corre un golden set y aplica la puerta (gate) de calidad.
+
+Ejecuta los casos del golden con un agente XEV sobre backend scripted (sin
+red), calcula pass_rate y lo compara con el umbral (del golden o --min-pass-rate).
+Guarda el reporte JSON en el store para harness2-report.
+
+Uso:
+    scripts/harness2-judge [golden.json] [--min-pass-rate 0.9] [--store json://DIR] [--max-cases N]
+
+Exit 0 si pass_rate >= umbral; exit 2 si falla el gate; exit 1 por error.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="golden + gate de Harness^2")
+    ap.add_argument("golden", nargs="?", default=str(ROOT / "examples" / "golden" / "security_scan.json"))
+    ap.add_argument("--min-pass-rate", type=float, default=None, help="umbral del gate (default: el del golden)")
+    ap.add_argument("--store", default="json://" + str(ROOT / "runs_h2"), help="store de corridas (json://DIR)")
+    ap.add_argument("--max-cases", type=int, default=None)
+    ap.add_argument("--traces", default=str(ROOT / "traces"))
+    args = ap.parse_args()
+
+    from harness_candy.agents import SecurityScanAgent
+    from harness_candy.components import WEV
+    from harness_candy.evalkit import load_golden, run_golden
+    from harness_candy.factory import make_backend, make_pool
+    from harness_candy.harness import Budget, HarnessStore
+    from harness_candy.security import SecurityGate
+    from harness_candy.storage import open_store
+
+    golden_path = Path(args.golden)
+    if not golden_path.exists():
+        print(f"ERROR: no existe el golden {golden_path}", file=sys.stderr)
+        return 1
+    os.chdir(ROOT)  # los casos usan rutas relativas al repo
+    golden = load_golden(golden_path)
+    for c in golden.cases:
+        if "root" in c.task.get("inputs", {}):
+            c.task["inputs"]["root"] = str((ROOT / c.task["inputs"]["root"]).resolve())
+
+    print(f"golden: {golden.name} ({len(golden.cases)} casos, min_pass_rate={golden.min_pass_rate})")
+    report = run_golden(
+        golden,
+        agent=SecurityScanAgent("XEV", "modelo-ligero", make_backend("scripted")),
+        pool=make_pool(),
+        store=HarnessStore(),
+        budget=Budget(total=100_000, beta=0.5, k=2, m=3),
+        wev=WEV(SecurityGate()),
+        trace_dir=args.traces,
+        seed=0,
+        max_cases=args.max_cases,
+    )
+    for r in report.results:
+        estado = "PASS" if r.passed else "FAIL"
+        print(f"  [{estado}] {r.case_id}: q={r.q:.3f} veredicto={r.veredicto} {r.reasons}")
+
+    umbral = args.min_pass_rate if args.min_pass_rate is not None else golden.min_pass_rate
+    d = report.to_dict()
+    d["umbral_aplicado"] = umbral
+    d["gate_ok"] = d["pass_rate"] >= umbral
+    print(f"pass_rate={d['pass_rate']} umbral={umbral} gate_ok={d['gate_ok']}")
+
+    # persistir el reporte en el store para harness2-report
+    try:
+        store = open_store(args.store)
+        run_id = f"judge-{golden.name}-{report.total}"
+        d_store = {"run_id": run_id, "tipo": "judge", "golden": golden.name, "reporte": d}
+        store.save(d_store)
+        print(f"reporte guardado en store {args.store} como {run_id}")
+    except Exception as e:  # noqa: BLE001 - el gate manda, el store es best-effort
+        print(f"aviso: no se pudo guardar en el store: {e}", file=sys.stderr)
+
+    print(json.dumps({k: v for k, v in d.items() if k != "results"}, ensure_ascii=False, indent=2))
+    if d["gate_ok"]:
+        return 0
+    print(f"GATE FALLO: pass_rate {d['pass_rate']:.3f} < umbral {umbral:.3f}", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

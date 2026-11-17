@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harness-candy"
+version = "0.1.0"
+description = "Ely-Cowork: diseno combinado ADK + Harness^2 - orquestacion multiagente (ISA/YEV/ZEV/XEV/WEV/ELY) con capa de calidad medible, protocolos tipados y adaptador Harness^2."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "AAA1234fdja" }]
+keywords = ["agents", "harness", "adk", "harness2", "multi-agent", "quality-gates", "ely-cowork"]
+dependencies = []
+
+[project.scripts]
+harness-candy = "harness_candy.cli:main"
+
+[project.optional-dependencies]
+# Integracion opcional con Google ADK real (los agentes siguen siendo
+# model-agnostic; ver docs/DISENO_COMBINADO.md).
+adk = ["google-adk>=1.0.0"]
+test = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

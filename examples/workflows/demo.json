@@ -1,0 +1,20 @@
+{
+  "name": "demo-seguridad",
+  "context": {"umbral": 0.5},
+  "steps": [
+    {"id": "marcar", "type": "set", "key": "listo", "value": true},
+    {"id": "escanear", "type": "task", "when": "ctx['listo'] == True", "retry": 1,
+     "task": {
+       "task_id": "wf-scan-1",
+       "kind": "security_scan",
+       "instruction": "Escanear el paquete demo en busca de secretos",
+       "inputs": {"root": "examples/golden/limpio"},
+       "criterios": [
+         {"id": "informe_json_valido", "peso": 3.0},
+         {"id": "compile_ok", "peso": 2.0},
+         {"id": "sin_secretos_criticos", "peso": 3.0}
+       ]
+     }},
+    {"id": "saltar", "type": "set", "key": "no_hacer", "value": 1, "when": "ctx['listo'] == False"}
+  ]
+}

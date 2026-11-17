@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""harness2-report: genera un reporte HTML o Markdown desde una corrida.
+
+Acepta o un archivo JSON de corrida (--run PATH) o un run_id dentro del
+store (--run-id X --store json://DIR). La extension de --out decide el
+formato (.html / .md); sin --out imprime a stdout.
+
+Soporta dos tipos de corrida:
+- corrida normal (dag_results): usa harness_candy.report.
+- judge (guardada por harness2-judge, con clave "reporte"): tabla del gate.
+
+Uso:
+    scripts/harness2-report --run runs_h2/judge-x.json --out reporte.html
+    scripts/harness2-report --run-id judge-security_scan-3 --store json://runs_h2 --out reporte.md
+"""
+from __future__ import annotations
+
+import argparse
+import html
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+
+def _esc(x) -> str:
+    return html.escape(str(x))
+
+
+def reporte_judge_html(run: dict, reporte: dict) -> str:
+    gate = "OK" if reporte.get("gate_ok") else "FALLO"
+    cls = "ok" if reporte.get("gate_ok") else "bad"
+    filas = "\n".join(
+        f"<tr class='{'ok' if r.get('passed') else 'bad'}'>"
+        f"<td><code>{_esc(r.get('case_id'))}</code></td>"
+        f"<td>{_esc(r.get('veredicto'))}</td>"
+        f"<td>{r.get('q', 0):.3f}</td>"
+        f"<td>{_esc('; '.join(r.get('reasons', [])))}</td></tr>"
+        for r in reporte.get("results", [])
+    )
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
+<title>Reporte judge { _esc(run.get('run_id','?')) }</title>
+<style>body{{font-family:system-ui}}table{{border-collapse:collapse}}td,th{{border:1px solid #ccc;padding:4px 8px}}.ok{{background:#e6f4e6}}.bad{{background:#fbe6e6}}</style>
+</head><body>
+<h1>Judge: {_esc(reporte.get('golden','?'))}</h1>
+<p>run_id <code>{_esc(run.get('run_id','?'))}</code> — gate <b class='{cls}'>{gate}</b>:
+pass_rate {reporte.get('pass_rate',0):.3f} / umbral {reporte.get('umbral_aplicado', reporte.get('min_pass_rate',0)):.3f}
+({reporte.get('passed',0)}/{reporte.get('total',0)} casos)</p>
+<table><tr><th>caso</th><th>veredicto</th><th>q</th><th>razones</th></tr>
+{filas}
+</table></body></html>"""
+
+
+def reporte_judge_md(run: dict, reporte: dict) -> str:
+    lineas = [
+        f"# Judge: {reporte.get('golden','?')}",
+        "",
+        f"- run_id: `{run.get('run_id','?')}`",
+        f"- gate: **{'OK' if reporte.get('gate_ok') else 'FALLO'}** — pass_rate {reporte.get('pass_rate',0):.3f} / umbral {reporte.get('umbral_aplicado', reporte.get('min_pass_rate',0)):.3f}",
+        f"- casos: {reporte.get('passed',0)}/{reporte.get('total',0)} pasados",
+        "",
+        "| caso | veredicto | q | razones |",
+        "|---|---|---|---|",
+    ]
+    for r in reporte.get("results", []):
+        lineas.append(f"| `{r.get('case_id')}` | {r.get('veredicto')} | {r.get('q',0):.3f} | {'; '.join(r.get('reasons', []))} |")
+    return "\n".join(lineas) + "\n"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="reporte HTML/MD desde una corrida")
+    ap.add_argument("--run", help="archivo JSON de la corrida")
+    ap.add_argument("--run-id", help="run_id dentro del store")
+    ap.add_argument("--store", default="json://" + str(ROOT / "runs_h2"), help="store (json://DIR)")
+    ap.add_argument("--out", help="archivo de salida (.html o .md); sin --out imprime a stdout")
+    args = ap.parse_args()
+
+    if args.run:
+        path = Path(args.run)
+        if not path.exists():
+            print(f"ERROR: no existe {path}", file=sys.stderr)
+            return 1
+        run = json.loads(path.read_text(encoding="utf-8"))
+    elif args.run_id:
+        from harness_candy.storage import open_store
+
+        store = open_store(args.store)
+        run = store.get(args.run_id)
+        if run is None:
+            print(f"ERROR: run_id {args.run_id!r} no esta en el store {args.store}", file=sys.stderr)
+            return 1
+    else:
+        ap.error("pase --run PATH o --run-id X")
+        return 1
+
+    es_judge = isinstance(run.get("reporte"), dict)
+    out_path = Path(args.out) if args.out else None
+    fmt = out_path.suffix.lower() if out_path else ".html"
+
+    if es_judge:
+        reporte = run["reporte"]
+        texto = reporte_judge_html(run, reporte) if fmt == ".html" else reporte_judge_md(run, reporte)
+    else:
+        from harness_candy.report import html_report, markdown_report
+
+        texto = html_report(run) if fmt == ".html" else markdown_report(run)
+
+    if out_path:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(texto, encoding="utf-8")
+        print(f"reporte escrito en {out_path} ({'judge' if es_judge else 'corrida'}, {fmt})")
+    else:
+        print(texto)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

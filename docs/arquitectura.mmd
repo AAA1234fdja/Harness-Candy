@@ -1,0 +1,39 @@
+%% Diagrama de niveles y componentes — Ely-Cowork (diseno combinado ADK+Harness^2)
+%% Renderiza en cualquier visor mermaid (GitHub lo soporta).
+flowchart TB
+    subgraph N1["Nivel 1 — Orquestación (ADK)"]
+        ISA["ISA<br/>Instruction & System Architect<br/>plan: requisitos, hitos,<br/>restricciones, criterios, irreversibles"]
+        YEV["YEV<br/>Yield Execution & Vector-dispatcher<br/>DAG → Agentes ADK (Seq/Par/Loop)"]
+        ELY["ELY<br/>Executive Loop & Yield-monitor<br/>juez independiente, regresión, mejoras"]
+    end
+    subgraph N2["Nivel 2 — Agentes de tarea (ADK + Harness²)"]
+        ZEV["ZEV<br/>investiga (RAG, fragmentos<br/>con procedencia)"]
+        XEV["XEV<br/>ejecuta en sandbox<br/>(allowlist, sin red)"]
+        WEV["WEV<br/>valida: tests deterministas<br/>+ juez LLM (fail-closed)"]
+    end
+    subgraph N3["Nivel 3 — Recursos y herramientas"]
+        POOL["Pool de claves/modelos<br/>por rol (ligero/potente), cuotas, rotación"]
+        TOOLS["MCP / herramientas<br/>sandbox efímero"]
+    end
+    subgraph QC["Capa de calidad transversal"]
+        QUAL["criterios medibles · Q(a) ec.(1)<br/>· regla estadística ec.(2) · Mann-Whitney<br/>· seguridad (entrada/ejecución/salida)<br/>· trazabilidad JSONL · regresión (>2 pp)"]
+    end
+    MEM[("Memoria<br/>variables (ámbitos/versiones/permisos)<br/>+ conocimiento (procedencia, persistente)")]
+    H2["Adaptador Harness²<br/>Propose → Probe → Compose (2k variantes × m corridas)<br/>aislado y reemplazable"]
+
+    ISA -- "yev (plan)" --> YEV
+    YEV -- "yev (despacho, modelo+clave)" --> XEV
+    YEV -- DAG --> ZEV
+    ZEV -- "zev: fragmentos con procedencia" --> MEM
+    XEV -- "xev: artefacto + registro" --> WEV
+    WEV -- "wev: veredicto + hallazgos(severidad) + Q" --> YEV
+    WEV -- "wev" --> ELY
+    ELY -- "ajustes de prompt/harness" --> H2
+    H2 -- "sondea con el LLM del agente (antes de la tarea)" --> XEV
+    POOL -- "selección por rol" --> YEV
+    TOOLS --> XEV
+    QC -.-> WEV
+    QC -.-> ELY
+    QC -.-> H2
+    MEM -.-> ZEV
+    MEM -.-> ELY

@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+*.jsonl
+!docs/**/*.jsonl
+
+# artefactos de ejecucion (no van al repo)
+traces/
+runs/
+runs_*/
+.harness_cache/
+examples/suites/*.html
+*.db
+*.sqlite*
+
+# memoria momentanea (cache): no va al repo
+memoria/cache/

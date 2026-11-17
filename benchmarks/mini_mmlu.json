@@ -1,0 +1,19 @@
+{
+  "name": "mini-mmlu-es",
+  "min_pass_rate": 0.6,
+  "few_shot": 1,
+  "metadata": {"fuente": "casos propios estilo MMLU (4 opciones, 1 correcta)", "idioma": "es"},
+  "cases": [
+    {"id": "mates-1", "tipo": "mcq", "dominio": "mates", "prompt": "Cuanto es 7 x 8?", "opciones": ["54", "56", "63", "48"], "esperada": 1,
+     "few_shot": [{"prompt": "Cuanto es 6 x 7?", "respuesta": "B"}]},
+    {"id": "mates-2", "tipo": "mcq", "dominio": "mates", "prompt": "Raiz cuadrada de 144?", "opciones": ["10", "11", "12", "14"], "esperada": 2},
+    {"id": "geo-1", "tipo": "mcq", "dominio": "geo", "prompt": "Capital de Colombia?", "opciones": ["Medellin", "Cali", "Bogota", "Cartagena"], "esperada": 2},
+    {"id": "geo-2", "tipo": "mcq", "dominio": "geo", "prompt": "Rio mas largo del mundo?", "opciones": ["Nilo", "Amazonas", "Yangtsé", "Misisipi"], "esperada": 1},
+    {"id": "hist-1", "tipo": "mcq", "dominio": "historia", "prompt": "En que año llego Colon a America?", "opciones": ["1492", "1512", "1488", "1500"], "esperada": 0},
+    {"id": "cs-1", "tipo": "mcq", "dominio": "cs", "prompt": "Complejidad de busqueda binaria?", "opciones": ["O(n)", "O(log n)", "O(n log n)", "O(1)"], "esperada": 1},
+    {"id": "cs-2", "tipo": "mcq", "dominio": "cs", "prompt": "Estructura FIFO?", "opciones": ["pila", "cola", "lista", "arbol"], "esperada": 1},
+    {"id": "bio-1", "tipo": "mcq", "dominio": "biologia", "prompt": "Organo que bombea la sangre?", "opciones": [" pulmon", "corazon", "higado", "rinon"], "esperada": 1},
+    {"id": "quim-1", "tipo": "mcq", "dominio": "quimica", "prompt": "Simbolo quimico del agua?", "opciones": ["CO2", "H2O", "O2", "NaCl"], "esperada": 1},
+    {"id": "lit-1", "tipo": "mcq", "dominio": "literatura", "prompt": "Autor de Cien años de soledad?", "opciones": ["Borges", "Neruda", "Garcia Marquez", "Vargas Llosa"], "esperada": 2}
+  ]
+}

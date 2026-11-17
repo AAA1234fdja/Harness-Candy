@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""harness2-check: verificacion rapida del repo (compilar + secretos + tests).
+
+- compileall sobre src/, third_party/ y scripts/.
+- Escaneo de secretos sobre el CODIGO (nunca .md): claves sk-..., AKIA...,
+  bloques de clave privada. Si encuentra algo, exit 1 y NO se commitea.
+- Tests: por defecto solo los de la quinta ola (rapidos); con --full corre la
+  suite completa (cd tests && python -m unittest discover).
+
+Uso:
+    scripts/harness2-check [--full] [--sin-tests]
+
+Exit 0 si todo OK, 1 si hay fallos.
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+PATRON_SECRETOS = re.compile(
+    r"sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+)
+EXT_CODIGO = {".py", ".sh", ""}
+EXCLUIR_DIRS = {".git", "__pycache__", ".venv", "node_modules"}
+
+# tests rapidos por defecto: los modulos nuevos de la quinta ola + third_party + scripts
+TESTS_RAPIDOS = [
+    "test_proposer_ola5.py",
+    "test_schedule_ola5.py",
+    "test_recursion_ola5.py",
+    "test_tree_selection_ola5.py",
+    "test_context_runmark_ola5.py",
+    "test_vertex_ola5.py",
+    "test_third_party.py",
+    "test_scripts.py",
+]
+
+
+def compilar() -> list[str]:
+    fallos: list[str] = []
+    for sub in ("src", "third_party", "scripts"):
+        base = ROOT / sub
+        if not base.exists():
+            fallos.append(f"falta {sub}/")
+            continue
+        r = subprocess.run(
+            [sys.executable, "-m", "compileall", "-q", str(base)],
+            capture_output=True, text=True, cwd=ROOT,
+        )
+        if r.returncode != 0:
+            fallos.append(f"compileall {sub}: {r.stderr.strip()[:400]}")
+    return fallos
+
+
+def escanear_secretos() -> list[str]:
+    hallazgos: list[str] = []
+    for sub in ("src", "third_party", "scripts"):
+        base = ROOT / sub
+        if not base.exists():
+            continue
+        for p in base.rglob("*"):
+            if not p.is_file() or p.suffix == ".md":
+                continue
+            if any(part in EXCLUIR_DIRS for part in p.parts):
+                continue
+            if p.suffix not in EXT_CODIGO:
+                continue
+            try:
+                texto = p.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            for i, linea in enumerate(texto.splitlines(), 1):
+                if PATRON_SECRETOS.search(linea):
+                    # falso positivo comun: la propia regex del escaner
+                    if "PATRON_SECRETOS" in linea and "re.compile" in texto:
+                        continue
+                    hallazgos.append(f"{p.relative_to(ROOT)}:{i}: patron de secreto")
+    return hallazgos
+
+
+def correr_tests(full: bool) -> list[str]:
+    fallos: list[str] = []
+    env = dict(__import__("os").environ)
+    env["PYTHONPATH"] = str(ROOT / "src")
+    if full:
+        cmd = [sys.executable, "-m", "unittest", "discover"]
+        cwd = ROOT / "tests"
+    else:
+        cmd = [sys.executable, "-m", "unittest", "-v", *TESTS_RAPIDOS]
+        cwd = ROOT / "tests"
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, env=env)
+    tail = (r.stdout + r.stderr).strip().splitlines()
+    resumen = tail[-1] if tail else "sin salida"
+    print(f"[tests {'full' if full else 'rapidos'}] {resumen}")
+    if r.returncode != 0:
+        fallos.append(f"tests {'full' if full else 'rapidos'} rc={r.returncode}: {resumen}")
+    return fallos
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="verificacion rapida del repo")
+    ap.add_argument("--full", action="store_true", help="suite de tests completa")
+    ap.add_argument("--sin-tests", action="store_true", help="salta los tests")
+    args = ap.parse_args()
+
+    fallos: list[str] = []
+    f = compilar()
+    print(f"[compileall] {'OK' if not f else f}")
+    fallos += f
+    s = escanear_secretos()
+    print(f"[secretos] {'LIMPIO' if not s else s}")
+    fallos += s
+    if not args.sin_tests:
+        fallos += correr_tests(args.full)
+    if fallos:
+        print(f"CHECK FALLO ({len(fallos)} problemas)", file=sys.stderr)
+        for f in fallos:
+            print(f"  - {f}", file=sys.stderr)
+        return 1
+    print("CHECK OK")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,43 @@
+{
+  "name": "security-scan-basico",
+  "min_pass_rate": 1.0,
+  "cases": [
+    {
+      "id": "src-limpio",
+      "task": {
+        "task_id": "g-scan-src",
+        "kind": "security_scan",
+        "instruction": "Escanear src/ en busca de secretos",
+        "inputs": {"root": "src"},
+        "criterios": [
+          {"id": "informe_json_valido", "peso": 3.0},
+          {"id": "compile_ok", "peso": 2.0},
+          {"id": "sin_secretos_criticos", "peso": 3.0}
+        ]
+      },
+      "expect": {
+        "veredicto": "aprobado",
+        "q_min": 0.9,
+        "artifact_json_keys": ["repo", "files_scanned", "secrets", "compile_errors"]
+      }
+    },
+    {
+      "id": "segundo-escaneo",
+      "task": {
+        "task_id": "g-scan-2",
+        "kind": "security_scan",
+        "instruction": "Segundo escaneo del paquete demo",
+        "inputs": {"root": "examples/golden/limpio"},
+        "criterios": [
+          {"id": "informe_json_valido", "peso": 3.0},
+          {"id": "sin_secretos_criticos", "peso": 3.0}
+        ]
+      },
+      "expect": {
+        "veredicto": "aprobado",
+        "q_min": 0.9,
+        "artifact_contains": ["files_scanned"]
+      }
+    }
+  ]
+}

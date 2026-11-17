@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "arena/**"]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # typecheck/compilacion básica del paquete (stdlib only)
+      - name: Compilar todo el paquete
+        run: python -m compileall -q src
+      # escaneo de secretos en el código (SECURITY.md: nunca claves en el repo).
+      # Se excluyen tests/ y examples/ porque usan fixtures con valores de ejemplo
+      # publicos (p. ej. la clave dummy oficial de AWS "AKIAIOSFODNN7EXAMPLE").
+      - name: Escaneo de secretos
+        run: |
+          if git grep -n -E "sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----" -- src ':!*.md'; then
+            echo "ERROR: se encontro un patron de clave/secreto en src/" >&2
+            exit 1
+          fi
+          echo "OK: sin secretos hardcodeados en src/"
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Instalar el paquete (editable)
+        run: python -m pip install -e .
+      - name: Tests (unittest, sin dependencias)
+        run: python -m unittest discover -s tests -v
+      - name: Smoke de los ejemplos (sin red)
+        run: |
+          python examples/demo_e2e.py > /dev/null
+          python examples/demo_ablation.py > /dev/null
+          python examples/bench_escalabilidad.py 8 > /dev/null
+
+  contract:
+    # "tests de contrato": los esquemas de los protocolos no deben romperse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e .
+      - name: Contrato de protocolos + reproducibilidad
+        env:
+          # tests/_path.py y tests/helpers.py se importan como modulos sueltos;
+          # con discover basta, pero en forma tests.test_* hace falta tests/ en el path
+          PYTHONPATH: ${{ github.workspace }}/tests
+        run: python -m unittest tests.test_protocols tests.test_extras -v
